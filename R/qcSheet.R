@@ -73,7 +73,7 @@ updateFromQC <- function(sTS,qcs){
   missingTSid <- c()
   missingTSidDsn <- c()
 
-  for(i in 3:nrow(qcs)){
+  for(i in 2:nrow(qcs)){
     if(!any(qcs$TSid[i] == TSid,na.rm = T)){
       missingTSid <- c(missingTSid,qcs$TSid[i])
       missingTSidDsn <- c(missingTSidDsn,qcs$dataSetName[i])
@@ -220,7 +220,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   #Add more filtering options later?
 
 
-  outRows <- length(fsTS)+1
+  outRows <- length(fsTS)
 
   #get all ages and years
   if(any(varNames=="year")){
@@ -260,22 +260,16 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   #setup qc tibble
   out <- as.data.frame(matrix(NA,nrow = outRows,ncol = length(toPull)))
   names(out) <- toPull
-  out[1,] <- qcs[1,]
+  #out[1,] <- qcs[1,]
   for(i in 1:length(toPull)){
-    #see if the spreadsheet is empty (WHY DID I DO THIS?)
-    #if(all(is.na(qcs[[toPull[i]]][-1]))){#then it's probably all empty
-    #  print(str_c("putting an empty column for ",toPull[i]))
-    if(FALSE){
-    }else{
       n2p <- convo$tsName[toPull[i]==convo$qcSheetName]
       if(any(n2p==allNames)){
         vec <- pullTsVariable(fsTS,n2p)
       }else{
         print(str_c("Does not exist in TS. Putting an empty column for ",toPull[i]))
-        vec <- rep(NA,outRows-1)
+        vec <- rep(NA,outRows)
       }
-      out[2:outRows,i] <- vec
-    }
+      out[,i] <- vec
   }
 
 

@@ -91,7 +91,10 @@ for(i in 1:nrow(map.meta)){
     thisTS <- TS[which(udsn[i] == dsn)]
 
     #look for chronTS
-    chronTS <- extractTs(D[[udsn[i]]],whichtables = "meas",mode = "chron")
+    chronTS <- try(extractTs(D[[udsn[i]]],whichtables = "meas",mode = "chron"))
+    if(grepl(class(chronTS),"try-error")){
+      chronTS <- NA
+    }
     save(chronTS,file = file.path(webDirectory,"chronTemp.RData"))
     test = try(createDashboardRmd(thisTS = thisTS,i = i,webDirectory = webDirectory,project = project,version = version,chronTS = chronTS,map.meta = map.meta))
     Sys.sleep(1)

@@ -9,6 +9,7 @@
 #' @import magrittr
 #' @import dplyr
 #' @import googledrive
+#' @import lubridate
 #'
 #' @return TRUE or FALSE
 #' @export
@@ -20,30 +21,35 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
   # lastMD5 <- directoryMD5(file.path(webDirectory,project,"current_version"))
   #
-  # filesNeedUpdating <- TRUE
-  # if(lastMD5 == currentMD5){
-  #   filesNeedUpdating <- FALSE
-  # }
+
 
 
 
   #compare QC update times
   versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
-    dplyr::filter(project == project) %>%
+    dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
-  lastUpdate <- versionSheet$versionCreated[1]
+  lastUpdate <- lubridate::ymd_hms(versionSheet$versionCreated[1])
+  lastMD5 <- versionSheet$`zip MD5`[1]
 
+  currentMD5 <- directoryMD5(lipdDir)
+
+  filesNeedUpdating <- TRUE
+  if(lastMD5 == currentMD5){
+    filesNeedUpdating <- FALSE
+  }
 
   #most recent file edit time
   lastMod <- purrr::map(list.files(lipdDir,pattern = "*.lpd",full.names = TRUE),file.mtime )
   lastMod <- lubridate::with_tz(lubridate::ymd_hms(lastMod[[which.max(unlist(lastMod))]],tz = "America/Phoenix"),tzone = "UTC")
 
 
-  filesNeedUpdating <- TRUE
-  if(lastUpdate > lastMod){
-    filesNeedUpdating <- FALSE
-  }
+#  check based on folder modification time
+#   filesNeedUpdating <- TRUE
+#   if(lastUpdate > lastMod){
+#     filesNeedUpdating <- FALSE
+#   }
 
   #most recent QC update
   info <- googledrive::drive_get(googledrive::as_id(qcId))
@@ -84,7 +90,7 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 
   #get last versions udsn
   versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
-    dplyr::filter(project == project) %>%
+    dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
   lastUdsn <- versionSheet$dsns[1]
@@ -156,11 +162,12 @@ if(!dir.exists(file.path(webDirectory,project,projVersion))){
 
 
 #create TSids if needed
-if(any(is.na(TSid))|any(is.null(TSid))){
-  D <- purrr::map(D,addTSidToLipd)
-  TS <- extractTs(D)
+et <- which(is.na(TSid))
+if(length(et) > 0){
+ntsid <- map_chr(et,createTSid)
+TSid[et] <- ntsid
+TS <- pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
 }
-
 
 sTS <- splitInterpretationByScope(TS)
 
@@ -211,7 +218,10 @@ writeLipd(DF,path = lipdDir)
 
 
 #9 update the google version file
+googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
+versionDf$versionCreated <- lubridate::ymd_hms(versionDf$versionCreated)
+
 
 newRow <- versionDf[1,]
 
