@@ -4,7 +4,8 @@
 \alias{createDashboardRmd}
 \title{Create an rmarkdown dashboard for a LiPD TS object}
 \usage{
-createDashboardRmd(thisTS, i, project, chronTS = NA)
+createDashboardRmd(thisTS, i, project, version, chronTS = NA,
+  map.meta = map.meta)
 }
 \arguments{
 \item{thisTS}{Lipd TSobject}

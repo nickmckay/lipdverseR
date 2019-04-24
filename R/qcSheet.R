@@ -1,9 +1,31 @@
 
+
+#' get google qc sheet
+#'
+#' @param qcSheetId Google sheet key
+#' @description returns a qc sheet. Also saves a csv file called "googleQC.csv"
+#' @return qcs qc data frame
+#' @import googledrive
+#' @import here
+#' @import readr
+#' @export
+#'
+#' @examples
+getGoogleQCSheet <- function(qcSheetId){
+  #download qc sheet
+  setwd(here::here())
+  x <- googledrive::drive_get(googledrive::as_id(qcSheetId))
+  qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
+  qcs <- readr::read_csv(here::here("googleQC.csv"))
+  return(qcs)
+}
+
+
 #TO DO - update to export error logging.
 #' update a split Timeseries object from a google QC sheet
 #' @export
 #' @param sTS a split timeseries object
-#' @param qcSheetId a google drive id
+#' @param qcs a QC data.frame
 #' @import googledrive
 #' @importFrom magrittr %>%
 #' @import readr
@@ -14,18 +36,14 @@
 #' @import geoChronR
 #' @return an updated sTS
 #'
-updateFromQC <- function(sTS,qcSheetId){
+updateFromQC <- function(sTS,qcs){
 
   #setup reporting
   report <- c()
   reportY <- c()
   noMatch <- c()
 
-  #download qc sheet
-  setwd(here::here())
-  x <- googledrive::drive_get(googledrive::as_id(qcSheetId))
-  qc <- googledrive::drive_download(x,path = here::here("updated.csv"),type = "csv",overwrite = T)
-  qcs <- readr::read_csv(here::here("updated.csv"))
+
 
   #download name conversion
   convo <- googledrive::as_id("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w") %>%
@@ -76,6 +94,7 @@ updateFromQC <- function(sTS,qcSheetId){
 
   bnames <- c("geo","pub","funding","dataPub")
   dsn <- sapply(sTS,"[[","dataSetName")
+
   for(i in 1:length(sTS)){
     thisTSid <- sTS[[i]]$paleoData_TSid
     #find which QC row
@@ -109,6 +128,8 @@ updateFromQC <- function(sTS,qcSheetId){
           }else{
             stop("variable type not recognized")
           }
+
+
           #apply to all timeseries from this dataset?
           sname <- stringr::str_split(thisTSnames[j],"_")
           #start with false
@@ -138,11 +159,11 @@ updateFromQC <- function(sTS,qcSheetId){
       }
     }#end loop through variables and force an update
   }
-  return(sTS)
+  return(newTS)
 }
 
 
-#' Title
+#' Create QC data.frame
 #' @export
 #' @param sTS
 #' @import googledrive
@@ -202,8 +223,17 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   outRows <- length(fsTS)+1
 
   #get all ages and years
-  allAge <- pullTsVariable(fsTS,"age")
-  allYear <- pullTsVariable(fsTS,"year")
+  if(any(varNames=="year")){
+    allYear <- pullTsVariable(fsTS,"year")
+  }else{
+    allYear <- vector(mode = "list",length = length(fsTS))
+  }
+
+  if(any(varNames=="age")){
+    allAge <- pullTsVariable(fsTS,"age")
+  }else{
+    allAge <- vector(mode = "list",length = length(fsTS))
+  }
 
   #convert years, calculate min/max years
   toRep <- which(sapply(allAge,length)==0 & sapply(allYear,length)>0)
@@ -212,11 +242,14 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
     allAge[[t]] <- convertAD2BP(allYear[[t]])
   }
 
+
+
+
   minAge <- sapply(allAge,min,na.rm=TRUE)
   maxAge <- sapply(allAge,max,na.rm=TRUE)
 
-  fsTS <- pushTsVariable(fsTS,"minYear",minAge)
-  fsTS <- pushTsVariable(fsTS,"maxYear",maxAge)
+  fsTS <- pushTsVariable(fsTS,"minYear",minAge,createNew = TRUE)
+  fsTS <- pushTsVariable(fsTS,"maxYear",maxAge, createNew = TRUE)
 
   #vectors to create
   toPull <- names(qcs) #get all names from template

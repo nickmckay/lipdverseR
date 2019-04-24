@@ -4,7 +4,7 @@
 \alias{createProjectRmd}
 \title{Create an overview RMarkdown file for a project}
 \usage{
-createProjectRmd(project)
+createProjectRmd(webDirectory, project, version)
 }
 \arguments{
 \item{project}{Name of the project}

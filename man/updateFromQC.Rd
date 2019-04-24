@@ -4,12 +4,12 @@
 \alias{updateFromQC}
 \title{update a split Timeseries object from a google QC sheet}
 \usage{
-updateFromQC(sTS, qcSheetId)
+updateFromQC(sTS, qcs)
 }
 \arguments{
 \item{sTS}{a split timeseries object}
 
-\item{qcSheetId}{a google drive id}
+\item{qcs}{a QC data.frame}
 }
 \value{
 an updated sTS

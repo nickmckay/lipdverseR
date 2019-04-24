@@ -2,7 +2,7 @@
 % Please edit documentation in R/qcSheet.R
 \name{createQCdataFrame}
 \alias{createQCdataFrame}
-\title{Title}
+\title{Create QC data.frame}
 \usage{
 createQCdataFrame(sTS, templateId, to.omit = c("depth", "age", "year"),
   to.omit.specific = c("yr"))
@@ -11,5 +11,5 @@ createQCdataFrame(sTS, templateId, to.omit = c("depth", "age", "year"),
 a data.frame QC sheet
 }
 \description{
-Title
+Create QC data.frame
 }

@@ -25,9 +25,19 @@ plotCol <- function(thisTS,ind,timeCol = NA){
     hasYear <- TRUE
     year <- thisTS[[ind]]$year
   }
+  if(hasYear){
+    if(all(is.na(year))){
+      hasYear <- FALSE
+    }
+  }
   if("age" %in% names(thisTS[[ind]])){
     hasAge <- TRUE
     age <- thisTS[[ind]]$age
+  }
+  if(hasAge){
+    if(all(is.na(age))){
+      hasAge <- FALSE
+    }
   }
   if(hasYear & !hasAge){#create an ageColumn
     age <- geoChronR::convertAD2BP(year)
@@ -37,7 +47,7 @@ plotCol <- function(thisTS,ind,timeCol = NA){
     year <- geoChronR::convertBP2AD(age)
     hasYear <- TRUE
   }
-  if((!hasYear & !hasAge) | all(is.na(year))){#has no years or ages
+  if(!hasYear & !hasAge){#has no years or ages
     year <- seq_along(thisTS[[ind]][[stringr::str_c(mode,"Data_values")]])
     hasSeq <- TRUE
   }
@@ -155,9 +165,11 @@ writeCollapsibleChunks <- function(thisRmd,thisTS = thisTS,name = "pub",vars = c
 
 
   for(j in 1:length(these.vars)){
-    if(!is.null(thisTS[[tsi]][[these.vars[j]]])){#skip it if it's not there
-      #add in the metadata
-      thisRmd <- str_c(thisRmd,str_c('<p style="margin-left: ',as.character(indent),'px"><strong>',vars[j],": </strong>",thisTS[[tsi]][these.vars[j]]),sep = "\n")
+    if(!is.null(thisTS[[tsi]][[these.vars[j]]])){
+      if(!is.na(thisTS[[tsi]][[these.vars[j]]])){#skip it if it's not there
+        #add in the metadata
+        thisRmd <- str_c(thisRmd,str_c('<p style="margin-left: ',as.character(indent),'px"><strong>',vars[j],": </strong>",thisTS[[tsi]][these.vars[j]]),sep = "\n")
+      }
     }
   }
 
@@ -181,11 +193,11 @@ writeCollapsibleChunks <- function(thisRmd,thisTS = thisTS,name = "pub",vars = c
 #' @import lipdR
 #' @import here
 #' @export
-createDashboardRmd <- function(thisTS,i,project,chronTS = NA){
+createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = NA,map.meta = map.meta){
 
 
   #load in the starter text
-  thisRmd <- read_file("start.Rmd")
+  thisRmd <- read_file(file.path(webDirectory,"start.Rmd"))
 
   #replace the title
   thisRmd <- str_replace(thisRmd,pattern = "LiPD-Dashboards",replacement = as.character(map.meta$dataSetName[i]))
@@ -412,7 +424,7 @@ createDashboardRmd <- function(thisTS,i,project,chronTS = NA){
 
 
   #load in mapchunk
-  mapChunk <- read_file("mapChunk.Rmd")
+  mapChunk <- read_file(file.path(webDirectory,"mapChunk.Rmd"))
 
   thisRmd <- str_c(thisRmd,mapChunk,sep = "\n") %>%
     str_c("\n")
@@ -430,7 +442,7 @@ createDashboardRmd <- function(thisTS,i,project,chronTS = NA){
     }
     print(names(outdf)[cc])
   }
-  readr::write_csv(outdf,here("html",project,csvName))
+  readr::write_csv(outdf,file.path(webDirectory,project,version,csvName))
 
 
 
@@ -449,7 +461,8 @@ createDashboardRmd <- function(thisTS,i,project,chronTS = NA){
       }
       print(names(outdfChron)[cc])
     }
-    readr::write_csv(outdfChron,here("html",project,csvNameChron))
+
+    readr::write_csv(outdfChron,file.path(webDirectory,project,version,csvNameChron))
 
   }
 
@@ -499,7 +512,7 @@ createDashboardRmd <- function(thisTS,i,project,chronTS = NA){
 
 
   #write out the Rmd
-  write_file(thisRmd,path = here("html",project,str_replace_all(str_c(as.character(map.meta$dataSetName[i]),".Rmd"),"'","_")))
+  write_file(thisRmd,path = file.path(webDirectory,project,version,str_replace_all(str_c(as.character(map.meta$dataSetName[i]),".Rmd"),"'","_")))
 
 }
 
@@ -509,14 +522,14 @@ createDashboardRmd <- function(thisTS,i,project,chronTS = NA){
 #' @import stringr
 #' @import readr
 #' @export
-createProjectRmd <- function(project){
+createProjectRmd <- function(webDirectory,project,version){
 
 
   #load in the starter text
-  thisRmd <- read_file(here("start.Rmd"))
+  thisRmd <- read_file(file.path(webDirectory,"start.Rmd"))
 
   #replace the title
-  thisRmd <- str_replace(thisRmd,pattern = "LiPD-Dashboards",replacement = project)
+  thisRmd <- str_replace(thisRmd,pattern = "LiPD-Dashboards",replacement = str_c(project,version))
 
   #set index number and close the first code chunk
   thisRmd <- str_c(thisRmd,str_c("i = ",as.character(1)),sep = "\n") %>%
@@ -524,19 +537,19 @@ createProjectRmd <- function(project){
 
 
   #write title.
-  thisRmd <- str_c(thisRmd,str_c("#",project),sep = "\n")  %>%
+  thisRmd <- str_c(thisRmd,str_c("#",project,version),sep = "\n")  %>%
     str_c("\n")
 
   #write metadata sidebar
   thisRmd <- str_c(thisRmd,"Metadata {.sidebar}",sep = "\n") %>%
     str_c("-------------------------------------",sep = "\n") %>%
-    str_c(str_c("[Download all LiPD files for ", project,"](",project,".zip)"),sep = "\n") %>%
+    str_c(str_c("[Download all LiPD files for ", project,version,"](",project,version,".zip)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
-    str_c(str_c("[Download R serialization of all LiPD files for ", project,"](",project,".RData)"),sep = "\n") %>%
+    str_c(str_c("[Download R serialization of all LiPD files for ", project,version,"](",project,version,".RData)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
-    str_c(str_c("[Download matlab serialization of all LiPD files for ", project,"](",project,".mat)"),sep = "\n") %>%
+    str_c(str_c("[Download matlab serialization of all LiPD files for ", project,version,"](",project,version,".mat)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
     str_c("[Report an issue (include project name)](https://github.com/nickmckay/LiPDverse/issues)",sep = "\n") %>%
@@ -544,7 +557,7 @@ createProjectRmd <- function(project){
 
 
   #load in mapchunk
-  mapChunk <- read_file("mapChunk.Rmd")
+  mapChunk <- read_file(file.path(webDirectory,"mapChunk.Rmd"))
 
   mapChunk <- str_replace(mapChunk,pattern = "buff <- 15",replacement = "buff <- 60")
 
@@ -553,7 +566,7 @@ createProjectRmd <- function(project){
 
 
   #write out the Rmd
-  write_file(thisRmd,path = here("html",project,"index.Rmd"))
+  write_file(thisRmd,path = file.path(webDirectory,project,version,"index.Rmd"))
 
 }
 
