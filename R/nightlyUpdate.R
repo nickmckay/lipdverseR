@@ -137,7 +137,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,versionMetaId = "1OH
 #authorize google
 googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 #check if update is necessary
-toUpdate <- updateNeeded(project,webDirectory,lipdDir,qcId)
+toUpdate <- updateNeeded(project,webDirectory,lipdDir,qcId,googEmail = googEmail)
 
 if(!toUpdate){
   return("No update needed")
@@ -152,7 +152,7 @@ TSid <- geoChronR::pullTsVariable(TS,"paleoData_TSid")
 udsn <- unique(geoChronR::pullTsVariable(TS,"dataSetName"))
 
 #1b. New version name
-projVersion <- tickVersion(project,udsn)
+projVersion <- tickVersion(project,udsn,googEmail = googEmail)
 
 #setup new version
 if(!dir.exists(file.path(webDirectory,project))){
