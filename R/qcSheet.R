@@ -107,7 +107,7 @@ updateFromQC <- function(sTS,qcs){
         reportY = rbind(reportY,stringr::str_c("TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName, " doesn't exist in QC sheet") )
       }
     }else if(length(qci)>1){#then too many matches
-      stop("too many TSid matches")
+      #stop("too many TSid matches")
       report = rbind(report,stringr::str_c("Too many matches for TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName) )
     }else{#loop through variables and force an update
       thisTSnames <- unique(c(names(sTS[[i]]),allNamesConvo)) #find names for this ts, combine with convo names for updates
@@ -146,7 +146,11 @@ updateFromQC <- function(sTS,qcs){
             #print(sname)
             dsni <- which(grepl(sTS[[i]]$dataSetName,dsn))
             for(k in 1:length(dsni)){
+              if (is.null(varFun(qcs[qci,rn]))){
+              newTS[[dsni[k]]][thisTSnames[j]] <- NULL
+              }else{
               newTS[[dsni[k]]][thisTSnames[j]] <- varFun(qcs[qci,rn])
+              }
             }
           }else{#then just for this one timeseries
             newTS[[i]][thisTSnames[j]] <- varFun(qcs[qci,rn])
@@ -159,6 +163,7 @@ updateFromQC <- function(sTS,qcs){
       }
     }#end loop through variables and force an update
   }
+  write_csv(x = as.data.frame(report),path = "~/GitHub/lipdverse/updateQc_log.csv")
   return(newTS)
 }
 

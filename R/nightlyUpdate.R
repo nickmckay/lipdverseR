@@ -13,7 +13,7 @@
 #'
 #' @return TRUE or FALSE
 #' @export
-updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY"){
+updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
   #compare files with MD5s
   # currentMD5 <- directoryMD5(lipdDir)
@@ -23,6 +23,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
 
 
+  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 
 
   #compare QC update times
@@ -86,7 +87,9 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 #' @export
 #'
 #' @examples
-tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY"){
+tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
+
+  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 
   #get last versions udsn
   versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
@@ -210,7 +213,11 @@ qcF <- createQCdataFrame(sTS,templateId = qcId)
 qc2w <- qcF
 qc2w[is.na(qc)] <- ""
 readr::write_csv(qc2w,path = file.path(webDirectory,project,"lastUpdate.csv"))
-googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"lastUpdate.csv"))
+
+
+newName <- str_c(project," v.",projVersion," QC sheet")
+
+googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"lastUpdate.csv"),name = newName)
 
 #8 write lipd files
 unlink(x = list.files(lipdDir,pattern = "*.lpd"),force = TRUE, recursive = TRUE)
@@ -237,7 +244,8 @@ newRow$`zip MD5` <- directoryMD5(lipdDir)
 nvdf <- dplyr::bind_rows(versionDf,newRow)
 
 readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
-googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId))
+
+googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
 
 
 
