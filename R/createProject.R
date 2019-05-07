@@ -103,8 +103,8 @@ for(i in 1:nrow(map.meta)){
     if(grepl(class(test),"try-error")){
       failed = c(failed, udsn[i])
     }else{
-      print(str_c("http://lipdverse.org/",project,version,"/",fname,".html"))
-      D[[map.meta$dataSetName[i]]]$lipdverseLink <- str_c("http://lipdverse.org/",project,version,"/",fname,".html")
+      print(str_c("http://lipdverse.org/",project,"/",version,"/",fname,".html"))
+      D[[map.meta$dataSetName[i]]]$lipdverseLink <- str_c("http://lipdverse.org/",project,"/",version,"/",fname,".html")
       writeLipd(D[[map.meta$dataSetName[i]]],path = file.path(webDirectory,project,version))
     }
  # }

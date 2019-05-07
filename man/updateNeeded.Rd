@@ -5,7 +5,8 @@
 \title{Check to see if a project needs to be updated}
 \usage{
 updateNeeded(project, webDirectory, lipdDir, qcId,
-  versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY")
+  versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
+  googEmail = NULL)
 }
 \value{
 TRUE or FALSE

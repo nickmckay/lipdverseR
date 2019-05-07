@@ -5,7 +5,8 @@
 \title{Title}
 \usage{
 tickVersion(project, udsn,
-  versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY")
+  versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
+  googEmail = NULL)
 }
 \arguments{
 \item{project}{project name}
@@ -13,6 +14,8 @@ tickVersion(project, udsn,
 \item{udsn}{a vector of dataset names in the project}
 
 \item{versionMetaId}{ID of the versioning qc sheet}
+
+\item{googEmail}{google user ID}
 }
 \value{
 the new version string

@@ -4,7 +4,9 @@
 \alias{updateProject}
 \title{Do a complete update to a project}
 \usage{
-updateProject(project, lipdDir, webDirectory, qcId)
+updateProject(project, lipdDir, webDirectory, qcId,
+  versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
+  googEmail = NULL, updateWebpages = TRUE)
 }
 \arguments{
 \item{project}{project name}
@@ -14,6 +16,10 @@ updateProject(project, lipdDir, webDirectory, qcId)
 \item{webDirectory}{directory for webserver}
 
 \item{qcId}{google sheets ID for the qc sheet}
+
+\item{googEmail}{google user ID}
+
+\item{updateWebpages}{update lipdverse webpages (default = TRUE). Usually TRUE unless troubleshooting.}
 }
 \description{
 Do a complete update to a project

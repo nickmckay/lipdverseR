@@ -16,8 +16,10 @@ dataPub1_url,dataPub1_url,character
 dataSetName,dataSetName,character
 elevation,geo_elevation,numeric
 lat,geo_latitude,numeric
-long,geo_longitude,numeric
-sitename,geo_siteName,character
+lon,geo_longitude,numeric
+geo_notes,geo_notes,character
+siteName,geo_siteName,character
+subRegion,geo_subRegion,character
 isotopeInterpretation1_basis,isotopeInterpretation1_basis,character
 isotopeInterpretation1_coefficient,isotopeInterpretation1_coefficient,numeric
 isotopeInterpretation1_direction,isotopeInterpretation1_direction,character
@@ -45,7 +47,7 @@ isotopeInterpretation3_name,isotopeInterpretation3_variable,character
 link to lipdverse,lipdverseLink,character
 maxYear,maxYear,numeric
 minYear,minYear,numeric
-originalDataURL,originalDataURL,character
+originalDataUrl,originalDataUrl,character
 chronologyIntegrationTime,paleoData_chronologyIntegrationTime,character
 chronologyIntegrationTimeBasis,paleoData_chronologyIntegrationTimeBasis,character
 chronologyIntegrationTimeUncertainty,paleoData_chronologyIntegrationTimeUncertainty,character
@@ -55,6 +57,7 @@ description,paleoData_description,character
 isotopeInterpretation1_equilibriumEvidence,paleoData_equilibriumEvidence,character
 Has chronology data,paleoData_hasChron,character
 Has paleo depth data,paleoData_hasPaleoDepth,character
+inCompilation,paleoData_inCompilation,character
 isotopeInterpretation1_inferredMaterial,paleoData_inferredMaterial,character
 Iso2k QC certification (INITIALS),paleoData_iso2kCertification,character
 QC notes from Hackathon #2 (and initials),paleoData_iso2kHackathonNotes,character
@@ -72,23 +75,20 @@ sensorIntegrationTimeBasis,paleoData_sensorIntegrationTimeBasis,character
 sensorintegrationTimeUncertainty,paleoData_sensorintegrationTimeUncertainty,character
 sensorIntegrationTimeUncertaintyType,paleoData_sensorIntegrationTimeUncertaintyType,character
 sensorIntegrationTimeUnits,paleoData_sensorIntegrationTimeUnits,character
-useInGlobalHolocene,paleoData_useInGlobalTemperatureAnalysis,character
-useInGlobalHoloceneTemperature,paleoData_useHoloceneTemp,character
 TSid,paleoData_TSid,character
 units,paleoData_units,character
+useInGlobalHoloceneTemperature,paleoData_useHoloceneTemp,character
+useInGlobalHolocene,paleoData_useInGlobalTemperatureAnalysis,character
 variableName,paleoData_variableName,character
-subRegion,geo_subRegion,character
-siteName,geo_siteName,character
-pub1_title,pub1_title,character
-pub1_journal,pub1_journal,character
 pub1_authors,pub1_author,character
 pub1_citation,pub1_citation,character
 pub1_citeKey,pub1_citeKey,character
-pub1_DOI,pub1_DOI,character
-pub1_year,pub1_pubYear,numeric
+pub1_doi,pub1_doi,character
+pub1_journal,pub1_journal,character
+pub1_title,pub1_title,character
+pub1_year,pub1_year,numeric
 pub2_authors,pub2_author,character
 pub2_citation,pub2_citation,character
 pub2_citeKey,pub2_citeKey,character
-pub2_DOI,pub2_DOI,character
-pub2_year,pub2_pubYear,numeric
-geo_notes,geo_notes,character
+pub2_doi,pub2_doi,character
+pub2_year,pub2_year,numeric

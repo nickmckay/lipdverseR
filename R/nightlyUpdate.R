@@ -21,8 +21,6 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
   # lastMD5 <- directoryMD5(file.path(webDirectory,project,"current_version"))
   #
-
-
   googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 
 
@@ -77,6 +75,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 #' @param project project name
 #' @param udsn a vector of dataset names in the project
 #' @param versionMetaId ID of the versioning qc sheet
+#' @param googEmail google user ID
 #' @description Ticks the version of a database for you. Assumes that a change is necessary.
 #' @import googlesheets4
 #' @import magrittr
@@ -125,9 +124,15 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 #' @param lipdDir authority directory for a lipd file
 #' @param webDirectory directory for webserver
 #' @param qcId google sheets ID for the qc sheet
-#'
+#' @param updateWebpages update lipdverse webpages (default = TRUE). Usually TRUE unless troubleshooting.
+#' @param googEmail google user ID
+#' @import purrr
+#' @import googlesheets4
+#' @import readr
+#' @import lipdR
+#' @import geoChronR
 #' @export
-updateProject <- function(project,lipdDir,webDirectory,qcId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
+updateProject <- function(project,lipdDir,webDirectory,qcId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE){
 #
 # project <- "test"
 # lipdDir <- "~/Dropbox/LiPD/namChironomid/"
@@ -167,7 +172,7 @@ if(!dir.exists(file.path(webDirectory,project,projVersion))){
 #create TSids if needed
 et <- which(is.na(TSid))
 if(length(et) > 0){
-ntsid <- map_chr(et,createTSid)
+ntsid <- purrr::map_chr(et,createTSid)
 TSid[et] <- ntsid
 TS <- pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
 }
@@ -179,13 +184,22 @@ qcC <- createQCdataFrame(sTS,templateId = qcId)
 readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv"))
 
 #3. Get the updated QC sheet from google
+drive_share(as_id(qcId),role = "reader", type = "anyone")
+
+#first, lock editing
+
+
+#now get the file
 qcB <- getGoogleQCSheet(qcId)
 readr::write_csv(qcB,path = file.path(webDirectory,project,projVersion,"qcGoog.csv"))
 
 
 #4. Load in the old QC sheet (from last update), and merge with new ones
 qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv"))
-qc <- daff::merge_data(qcA,readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv")),readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv")))
+
+qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv"))
+qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"))
+qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
 
 #remove duplicate rows
 qc <- dplyr::distinct(qc)
@@ -197,21 +211,23 @@ nTS <- combineInterpretationByScope(nsTS)
 nD <- collapseTs(nTS)
 
 #6 Update lipdverse
+if(updateWebpages){
 createProjectDashboards(nD,nTS,webDirectory,project,projVersion,currentVersion = TRUE)
 
-
 #load back in files
-
 DF <- readLipd(file.path(webDirectory,project,projVersion))
+}else{
+  DF <- nD
+}
 TSF <- extractTs(DF)
 sTSF <- splitInterpretationByScope(TSF)
-qcF <- createQCdataFrame(sTS,templateId = qcId)
+qcF <- createQCdataFrame(sTSF,templateId = qcId)
 
 
 #7 Update QC sheet on google (and make a lastUpdate.csv file)
 
 qc2w <- qcF
-qc2w[is.na(qc)] <- ""
+qc2w[is.na(qc2w)] <- ""
 readr::write_csv(qc2w,path = file.path(webDirectory,project,"lastUpdate.csv"))
 
 
@@ -220,7 +236,7 @@ newName <- str_c(project," v.",projVersion," QC sheet")
 googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"lastUpdate.csv"),name = newName)
 
 #8 write lipd files
-unlink(x = list.files(lipdDir,pattern = "*.lpd"),force = TRUE, recursive = TRUE)
+unlink(x = list.files(lipdDir,pattern = "*.lpd",full.names = TRUE),force = TRUE, recursive = TRUE)
 writeLipd(DF,path = lipdDir)
 
 
@@ -246,8 +262,8 @@ nvdf <- dplyr::bind_rows(versionDf,newRow)
 readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
 
 googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
-
-
+#give permissions back
+drive_share(as_id(qcId),role = "writer", type = "anyone")
 
 }
 
