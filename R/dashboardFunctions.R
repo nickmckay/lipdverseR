@@ -216,7 +216,9 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
 
 
   csvName <- str_replace_all(str_c(as.character(map.meta$dataSetName[i]),".csv"),"'","_")
+
   csvNameChron <- str_replace_all(str_c(as.character(map.meta$dataSetName[i]),"-chron.csv"),"'","_")
+
 
 
   #write metadata sidebar
@@ -225,7 +227,7 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
     str_c(str_c("[Download LiPD file](",as.character(map.meta$dataSetName[i]),".lpd)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
-    str_c(str_c("[Edit LiPD file](http://lipd.net/playground?source=http://lipdverse.org/",project,"/",as.character(map.meta$dataSetName[i]),".lpd)"),sep = "\n") %>%
+    str_c(str_c("[Edit LiPD file](http://lipd.net/playground?source=http://lipdverse.org/",project,"/",version,"/",as.character(map.meta$dataSetName[i]),".lpd)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
     str_c(str_c("[Download paleoData only (csv)](",csvName,")"),sep = "\n") %>%
