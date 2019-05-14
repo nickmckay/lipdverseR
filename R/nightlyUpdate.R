@@ -212,10 +212,13 @@ nTS <- combineInterpretationByScope(nsTS)
 
 
 #5b. Clean TS
-nTS <- fix_pubYear(nTS)
+nTS2 <- fix_pubYear(nTS)
 
 #5c rebuild database
 nD <- collapseTs(nTS)
+
+#5d clean D
+nD <- purrr::map(nD,removeEmptyPubs)
 
 #6 Update lipdverse
 if(updateWebpages){

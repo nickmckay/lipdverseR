@@ -50,7 +50,7 @@ fix_pubYear <- function(TS){
     year[by] <- NA
 
     #push back to TS
-    nts <- geoChronR::pushTsVariable(TS = nts,variable = y[i],vec = year)
+    nts <- geoChronR::pushTsVariable(TS = nts,variable = y[i],vec = year,createNew = TRUE)
 
     nts <- removeVariable(nts,variable = py[i])
 
@@ -60,3 +60,23 @@ fix_pubYear <- function(TS){
 
   return(nts)
 }
+
+#remove empty pubs
+isEmptyPub <- function(pub){
+  return(all(unlist(pub) == "NA" | is.na(unlist(pub)) | is.null(unlist(pub))))
+}
+
+removeEmptyPubs <- function(L){
+  if("pub" %in% names(L)){#if there is a pub section
+    empties <- purrr::map_lgl(L$pub,isEmptyPub)
+    if(any(empties)){#then remove them
+      tr <- which(empties)
+      L$pub[[tr]] <- NULL
+    }
+  }
+  return(L)
+}
+
+
+
+
