@@ -1,3 +1,28 @@
+#' Flatten authors list to a string
+#'
+#' @param vec
+#'
+#' @return
+#' @export
+flattenAuthors <- function(vec){
+
+if(class(vec)=="matrix"){#handle specially
+  mat <- apply(vec,2,function(x){sapply(x,"[[","name")})
+  nvec <- apply(mat,2,paste,collapse = " ; ")
+}else if(class(vec)=="list"){
+  nvec <- matrix(NA,nrow = length(vec))
+  for(i in 1:length(vec)){
+    tl <- vec[[i]]
+    if(is.character(tl)){
+      nvec[i] <- tl
+    }else if(is.list(tl)){
+      nvec[i] <- paste(sapply(tl,"[[","name"),collapse = " ; ")
+    }
+
+  }
+}
+  return(nvec)
+}
 
 
 #' get google qc sheet
@@ -125,6 +150,12 @@ updateFromQC <- function(sTS,qcs){
             varFun <- as.numeric
           }else if(varType == "boolean"){
             varFun <- as.logical
+          }else if(varType == "author"){
+            varFun <- function(x){
+              aut <- stringr::str_split(x," ; ",simplify = TRUE)
+              out <- purrr::map(seq_along(aut),function(y){list(name = aut[y])})
+              return(list(out))
+            }
           }else{
             stop("variable type not recognized")
           }
@@ -149,6 +180,9 @@ updateFromQC <- function(sTS,qcs){
               if (is.null(varFun(qcs[qci,rn]))){
               newTS[[dsni[k]]][thisTSnames[j]] <- NULL
               }else{
+                if(varType == "author"){
+                  1+1
+                }
               newTS[[dsni[k]]][thisTSnames[j]] <- varFun(qcs[qci,rn])
               }
             }
@@ -270,11 +304,18 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
       n2p <- convo$tsName[toPull[i]==convo$qcSheetName]
       if(any(n2p==allNames)){
         vec <- pullTsVariable(fsTS,n2p)
+        #check to see if vec is authors
+
+        if(grepl("author",n2p)){
+         vec <- flattenAuthors(vec)
+        }
       }else{
         print(str_c("Does not exist in TS. Putting an empty column for ",toPull[i]))
         vec <- rep(NA,outRows)
       }
+
       out[,i] <- vec
+
   }
 
 

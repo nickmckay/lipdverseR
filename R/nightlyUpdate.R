@@ -208,6 +208,13 @@ qc <- dplyr::distinct(qc)
 #5. Update sTS from merged qc
 nsTS <- updateFromQC(sTS,qc)
 nTS <- combineInterpretationByScope(nsTS)
+
+
+
+#5b. Clean TS
+nTS <- fix_pubYear(nTS)
+
+#5c rebuild database
 nD <- collapseTs(nTS)
 
 #6 Update lipdverse
@@ -256,6 +263,18 @@ newRow$metadata <- pdm[3]
 newRow$dsns <- paste(unique(geoChronR::pullTsVariable(TSF,"dataSetName")),collapse = "|")
 newRow$versionCreated <- lubridate::now(tzone = "UTC")
 newRow$`zip MD5` <- directoryMD5(lipdDir)
+
+
+
+#check for differences in dsns
+dsndiff <- filter(versionDf,project == (!!project)) %>%
+  filter(versionCreated == max(versionCreated))
+
+oldDsns <- stringr::str_split(dsndiff$dsns,pattern = "[|]",simplify = T)
+newDsns <- stringr::str_split(newRow$dsns,pattern = "[|]",simplify = T)
+
+newRow$`dataSets removed` <- paste(setdiff(oldDsns,newDsns),collapse = "|")
+newRow$`dataSets added` <- paste(setdiff(newDsns,oldDsns),collapse = "|")
 
 nvdf <- dplyr::bind_rows(versionDf,newRow)
 

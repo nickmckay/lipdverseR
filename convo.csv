@@ -80,14 +80,14 @@ units,paleoData_units,character
 useInGlobalHoloceneTemperature,paleoData_useHoloceneTemp,character
 useInGlobalHolocene,paleoData_useInGlobalTemperatureAnalysis,character
 variableName,paleoData_variableName,character
-pub1_authors,pub1_author,character
+pub1_authors,pub1_author,author
 pub1_citation,pub1_citation,character
 pub1_citeKey,pub1_citeKey,character
 pub1_doi,pub1_doi,character
 pub1_journal,pub1_journal,character
 pub1_title,pub1_title,character
 pub1_year,pub1_year,numeric
-pub2_authors,pub2_author,character
+pub2_authors,pub2_author,author
 pub2_citation,pub2_citation,character
 pub2_citeKey,pub2_citeKey,character
 pub2_doi,pub2_doi,character
