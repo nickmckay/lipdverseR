@@ -105,8 +105,9 @@ for(i in 1:nrow(map.meta)){
     }else{
       print(str_c("http://lipdverse.org/",project,"/",version,"/",fname,".html"))
       D[[map.meta$dataSetName[i]]]$lipdverseLink <- str_c("http://lipdverse.org/",project,"/",version,"/",fname,".html")
-      writeLipd(D[[map.meta$dataSetName[i]]],path = file.path(webDirectory,project,version))
     }
+    writeLipd(D[[map.meta$dataSetName[i]]],path = file.path(webDirectory,project,version))
+
  # }
   #copy the lipd file if it's not already there
   # if(!file.exists(file.path(webDirectory,project,version,str_c(fname,".lpd")))){
@@ -115,6 +116,10 @@ for(i in 1:nrow(map.meta)){
 }
 setwd(file.path(webDirectory,project,version))
 zip(zipfile = file.path(webDirectory,project,version,str_c(project,version,".zip")),files = list.files(file.path(webDirectory,project,version),pattern= "*.lpd"))
+
+#write out failed somewhere
+write.csv(x = failed,file = file.path(webDirectory,project,version,"failedLipdversePage.csv"))
+
 
 #if current version, copy into current_version folder
 if(currentVersion){

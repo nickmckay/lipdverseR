@@ -49,6 +49,9 @@ fix_pubYear <- function(TS){
     by <- which(year == "NA" | year == "0")#bad
     year[by] <- NA
 
+    #force to numeric
+    year <- as.numeric(year)
+
     #push back to TS
     nts <- geoChronR::pushTsVariable(TS = nts,variable = y[i],vec = year,createNew = TRUE)
 
@@ -63,7 +66,7 @@ fix_pubYear <- function(TS){
 
 #remove empty pubs
 isEmptyPub <- function(pub){
-  return(all(unlist(pub) == "NA" | is.na(unlist(pub)) | is.null(unlist(pub))))
+  return(all(unlist(pub) == "" || unlist(pub) == "NA" | is.na(unlist(pub)) | is.null(unlist(pub))))
 }
 
 removeEmptyPubs <- function(L){

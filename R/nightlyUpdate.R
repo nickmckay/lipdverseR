@@ -212,7 +212,7 @@ nTS <- combineInterpretationByScope(nsTS)
 
 
 #5b. Clean TS
-nTS2 <- fix_pubYear(nTS)
+nTS <- fix_pubYear(nTS)
 
 #5c rebuild database
 nD <- collapseTs(nTS)
@@ -247,6 +247,9 @@ googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webD
 
 #8 write lipd files
 unlink(x = list.files(lipdDir,pattern = "*.lpd",full.names = TRUE),force = TRUE, recursive = TRUE)
+
+DF <- purrr::map(DF,removeEmptyPubs)
+
 writeLipd(DF,path = lipdDir)
 
 
