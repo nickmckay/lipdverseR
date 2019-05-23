@@ -1,4 +1,8 @@
 
+#' Create a translator for special characters
+#'
+#' @return a dataframe
+#' @export
 rosettaStone <- function(){
 rosetta <- tibble::as_tibble(matrix(c(
   'á' , 'a',
@@ -280,6 +284,13 @@ return(rosetta)
 }
 
 
+#' Romanize special characters
+#'
+#' @param toReplace  a string, or vector of strings, to replace.
+#' @param rosetta A data.frame that translate special characters, from rosettaStone()
+#'
+#' @return romanized strings
+#' @export
 replaceSpecialCharacters <- function(toReplace,rosetta){
   out <- toReplace
   for(i in 1:nrow(rosetta)){

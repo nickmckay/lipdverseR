@@ -41,7 +41,12 @@ getGoogleQCSheet <- function(qcSheetId){
   setwd(here::here())
   x <- googledrive::drive_get(googledrive::as_id(qcSheetId))
   qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
-  qcs <- readr::read_csv(here::here("googleQC.csv"))
+
+  #remove any special characters
+  rosetta <- lipdverseR::rosettaStone()
+  qcs <- readr::read_csv(here::here("googleQC.csv")) %>%
+  purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
+
   return(qcs)
 }
 
@@ -175,7 +180,7 @@ updateFromQC <- function(sTS,qcs){
           #fill it in.
           if(apply2all){#then fill it in for all in dataset
             #print(sname)
-            dsni <- which(grepl(sTS[[i]]$dataSetName,dsn))
+            dsni <- which(sTS[[i]]$dataSetName == dsn)
             for(k in 1:length(dsni)){
               if (is.null(varFun(qcs[qci,rn]))){
               newTS[[dsni[k]]][thisTSnames[j]] <- NULL
@@ -321,6 +326,11 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
 
   out[is.na(out)] <- ""
   out[out=="NA"] <- ""
+
+  rosetta <- lipdverseR::rosettaStone()
+  out <- purrr::map_df(out,lipdverseR::replaceSpecialCharacters,rosetta)
+
+
 
   return(out)
 }

@@ -339,6 +339,10 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
   for(cc in plotOrder){#for each column..
     #regular metadata
 
+    if(is.na(thisTS[[cc]]$paleoData_units)){
+      thisTS[[cc]]$paleoData_units <- "unitless"
+    }
+
     if(max(paleoNum) == 1  & max(tableNum) == 1){
       tvname <- str_c(thisTS[[cc]]$paleoData_variableName," (",thisTS[[cc]]$paleoData_units,")")
     }else{
@@ -346,6 +350,7 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
     }
 
     thisRmd <- writeCollapsibleChunks(thisRmd,thisTS,name = "paleoData",forceName = tvname,vars = c("TSid", "variableName","units","description","useInGlobalTemperatureAnalysis"),tsi = cc,dontClose = TRUE,indent = 10)
+
 
 
 
@@ -371,6 +376,7 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
         vars <- str_extract(pubNames,str_c("(?<=interpretation",as.numeric(p),"_).*$")) #get all.
         thisRmd <- writeCollapsibleChunks(thisRmd,thisTS,name = str_c(bigName,as.character(p)),vars = vars,tsi = cc,forceName = as.character(p),indent = 20)
       }
+      if(is.na(thisRmd)){stop("asdas")}
 
       #close paleo setion
       thisRmd <- str_c(thisRmd,"</details>",sep = "\n")
@@ -479,8 +485,15 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
   #graph order
   xcol <- which(thisVarNames %in% c("year","depth","age"))
 
-  graphOrder = plotOrder[-which(plotOrder %in% xcol)]
-  graphNames = names(outdf)[-which(plotOrder %in% xcol)]
+  if(any(plotOrder %in% xcol)){#then remove those
+    graphOrder = plotOrder[-which(plotOrder %in% xcol)]
+    graphNames = names(outdf)[-which(plotOrder %in% xcol)]
+  }else{
+    graphOrder = plotOrder
+    graphNames = names(outdf)
+    }
+
+
   for(cc in 1:length(graphOrder)){#for each column..
     #setup a new column in the markdown
     thisRmd <- str_c(thisRmd,str_c("### ",graphNames[cc]),sep = "\n") %>%
@@ -512,7 +525,9 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
     }
   }
 
-
+#if(is.na(thisRmd)){
+  warning("why is it a NA?")
+#}
   #write out the Rmd
   write_file(thisRmd,path = file.path(webDirectory,project,version,str_replace_all(str_c(as.character(map.meta$dataSetName[i]),".Rmd"),"'","_")))
 
@@ -555,6 +570,9 @@ createProjectRmd <- function(webDirectory,project,version){
     str_c("\n") %>%
     str_c("            \n") %>%
     str_c("[Report an issue (include project name)](https://github.com/nickmckay/LiPDverse/issues)",sep = "\n") %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
+    str_c(str_c("[View changelog for ", project,version,"](metadataChangelog.html)"),sep = "\n") %>%
     str_c("\n")
 
 

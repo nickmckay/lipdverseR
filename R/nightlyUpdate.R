@@ -153,6 +153,15 @@ if(!toUpdate){
 D <- readLipd(lipdDir)
 #check for TSid
 TS <- extractTs(D)
+
+#Do some cleaning
+TS <- standardizeTsValues(TS)
+TS <- fix_pubYear(TS)
+TS <- fixKiloyearsTs(TS)
+
+
+
+
 TSid <- geoChronR::pullTsVariable(TS,"paleoData_TSid")
 udsn <- unique(geoChronR::pullTsVariable(TS,"dataSetName"))
 
@@ -195,11 +204,20 @@ readr::write_csv(qcB,path = file.path(webDirectory,project,projVersion,"qcGoog.c
 
 
 #4. Load in the old QC sheet (from last update), and merge with new ones
-qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv"))
+rosetta <- lipdverseR::rosettaStone()
+qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv")) %>%
+  purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 
-qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv"))
-qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"))
+qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv")) %>%
+  purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
+qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv")) %>%
+  purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
+
+#find differences for log
+diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse")
+daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
+
 
 #remove duplicate rows
 qc <- dplyr::distinct(qc)
@@ -213,12 +231,17 @@ nTS <- combineInterpretationByScope(nsTS)
 
 #5b. Clean TS
 nTS <- fix_pubYear(nTS)
+nTS <- standardizeTsValues(nTS)
 
 #5c rebuild database
 nD <- collapseTs(nTS)
 
 #5d clean D
-nD <- purrr::map(nD,removeEmptyPubs)
+nDt <- purrr::map(nD,removeEmptyPubs)
+
+if(class(nDt) == "list"){
+  nD <- nDt
+}
 
 #6 Update lipdverse
 if(updateWebpages){

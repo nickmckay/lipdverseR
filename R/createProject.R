@@ -118,8 +118,7 @@ setwd(file.path(webDirectory,project,version))
 zip(zipfile = file.path(webDirectory,project,version,str_c(project,version,".zip")),files = list.files(file.path(webDirectory,project,version),pattern= "*.lpd"))
 
 #write out failed somewhere
-write.csv(x = failed,file = file.path(webDirectory,project,version,"failedLipdversePage.csv"))
-
+write.table(x = failed,file = file.path(webDirectory,project,version,"failedLipdversePage.txt"),col.names = FALSE,row.names = FALSE )
 
 #if current version, copy into current_version folder
 if(currentVersion){

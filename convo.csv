@@ -1,5 +1,6 @@
 qcSheetName,tsName,type
 archiveType,archiveType,character
+calibration_method,calibration_method,character
 basis,climateInterpretation1_basis,character
 direction,climateInterpretation1_direction,character
 seasonality,climateInterpretation1_seasonality,character
