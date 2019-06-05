@@ -72,7 +72,21 @@ fix_pubYear <- function(TS){
 #' @return boolean
 #' @export
 isEmptyPub <- function(pub){
-  return(all(unlist(pub) == "" || unlist(pub) == "NA" | is.na(unlist(pub)) | is.null(unlist(pub))))
+  blank <- unlist(pub) == ""
+  blank[is.na(blank)] <- FALSE
+
+  qna <- unlist(pub) == "NA"
+  qna[is.na(qna)] <- FALSE
+
+  ina <- is.na(unlist(pub))
+  ina[is.na(ina)] <- FALSE
+
+  inu <- purrr::map_lgl(unlist(pub),is.null)
+  inu[is.na(inu)] <- FALSE
+
+
+
+  return( all(blank | qna | ina | inu  ))
 }
 
 #' remove empty pubs
@@ -84,9 +98,18 @@ isEmptyPub <- function(pub){
 removeEmptyPubs <- function(L){
   if("pub" %in% names(L)){#if there is a pub section
     empties <- purrr::map_lgl(L$pub,isEmptyPub)
+    if(any(is.na(empties))){
+      print("got NAs, returning original")
+      return(L)
+    }
     if(any(empties)){#then remove them
       tr <- which(empties)
       L$pub[tr] <- NULL
+    }
+
+    if(length(L$pub)==0){
+      L$pub <- vector(mode = "list",length = 1) #this needs to be tested!
+      L$pub[[1]]$author <- "missing"
     }
   }
   return(L)
@@ -146,7 +169,7 @@ standardizeValues <- function(TS,tsKey,googId){
     oldKey <- geoChronR::pullTsVariable(TS,oName)
     createNew = FALSE
   }else{
-    oldKey <- matrix("",nrow = length(TS))
+    oldKey <- matrix(NA,nrow = length(TS))
     createNew = TRUE
   }
   oldKey[diffKeys] <- key[diffKeys]
@@ -238,8 +261,8 @@ getConverter <- function(googId,howLong = 30){
 #' @return TS
 #' @export
 fixKiloyearsTs <- function(TS){
-  vars <- pullTsVariable(TS,"paleodata_variableName")
-  units <- pullTsVariable(TS,"paleodata_units")
+  vars <- pullTsVariable(TS,"paleoData_variableName")
+  units <- pullTsVariable(TS,"paleoData_units")
 
   isAge <- which(vars=="age")
   if(length(isAge)>1){
@@ -257,3 +280,185 @@ fixKiloyearsTs <- function(TS){
 
 }
 
+
+
+#first remove all empty interpretations
+
+#' Interpretation cleaner
+#'
+#' @param ii
+#'
+#' @return clean interp
+#' @export
+interpCleaner <- function(ii){
+  if(length(ii)==1){
+    if(all(ii == "") | all(is.na(ii))){
+      ii <- NULL
+    }
+  }
+  return(ii)
+}
+
+#' remove empty interpretations from TS instance
+#'
+#' @param tsi
+#'
+#' @return tsi
+#' @export
+removeEmptyInterpretationsFromTs <- function(tsi){
+
+tsi <- map(tsi,interpCleaner)
+
+torem <- which(map_lgl(tsi,is.null))
+if(length(torem)>1){
+  tsi <- tsi[-torem]
+}
+
+#get the interpretations
+ai <- names(tsi)[which(str_detect(names(tsi),"interpretation"))]
+
+#get the scopes
+as <- ai[which(str_detect(ai,"scope"))]
+
+for(i in 1:length(as)){
+  tn <- str_extract(as[i],"[0-9]")
+  if(sum(str_detect(ai,tn))==1){#then it's the only one, remove it
+    tsi[[as[i]]] <- NULL
+  }
+}
+
+torem <- which(map_lgl(tsi,is.null))
+if(length(torem)>1){
+  tsi <- tsi[-torem]
+}
+
+
+#get the interpretations
+ai <- names(tsi)[which(str_detect(names(tsi),"interpretation"))]
+
+tn <- as.numeric(str_extract(ai,"[0-9]"))
+
+utn <- sort(unique(tn))
+if(length(utn) != max(utn)){#then renumber
+  newname <- ai
+  for(i in 1:length(utn)){
+    ind <- which(tn==utn[i])
+    newname[ind] <- str_replace(string = ai[ind], "[0-9]",as.character(i))
+  }
+  names(tsi)[which(str_detect(names(tsi),"interpretation"))] <- newname
+}
+
+
+
+return(tsi)
+}
+
+
+#' Fix issues from files imported from excel for climate 12k
+#'
+#' @param L
+#'
+#' @return L
+#' @export
+fixExcelIssues <- function(L){
+  ts <- extractTs(L)
+
+  vn <- pullTsVariable(ts,"paleoData_variableName")
+  vno <- try(pullTsVariable(ts,"paleoData_variableNameOriginal"))
+  if(class(vno)=="try-error"){
+    vno <- vn
+  }
+
+  #first, correct age units
+  wa <- which(vn == "age")
+  if(length(wa)>0){
+    for(i in 1:length(wa)){
+      if(length(ts[[wa[i]]]$paleoData_units)==0){
+        ts[[wa[i]]]$paleoData_units <- "yr BP"
+      }
+      if(ts[[wa[i]]]$paleoData_units == "degC"){
+        ts[[wa[i]]]$paleoData_units <- "yr BP"
+      }
+    }
+  }
+
+  #second, deal with reliability issues
+  rel <- which(vn == "N")
+  temp1 <- which(vno == "TemperatureReconstruction1")
+
+  temp2 <- which(vno == "TemperatureReconstruction2")
+
+  temp3 <- which(vno == "TemperatureReconstruction3")
+
+  if(length(rel)>0 & length(temp1)>0){
+    for(j in 1:length(temp1)){
+      ts <- unreliable(ts,temp1[j],rel[1])
+      ts[[rel[1]]]$paleoData_variableName <- "reliable"
+    }
+  }
+  if(length(rel)>1 & length(temp2)>0){
+    for(j in 1:length(temp2)){
+      ts <- unreliable(ts,temp2[j],rel[2])
+      ts[[rel[2]]]$paleoData_variableName <- "reliable"
+
+    }
+  }
+  if(length(rel)>2 & length(temp3)>0){
+    for(j in 1:length(temp3)){
+      ts <- unreliable(ts,temp3[j],rel[3])
+      ts[[rel[3]]]$paleoData_variableName <- "reliable"
+
+    }
+  }
+
+  newL <- collapseTs(ts)
+  return(newL)
+
+}
+
+
+
+#' Deal with unreliable samples
+#'
+#' @param ts
+#' @param ti
+#' @param ri
+#'
+#' @return ts
+#' @export
+unreliable <- function(ts,ti,ri){
+  rel <- ts[[ri]]$paleoData_values
+  bad <- which(stringr::str_detect(tolower(rel),"n"))
+  if(is.null(ts[[ti]]$paleoData_QCnotes)){
+    alreadyFixed <- FALSE
+  }else{
+    alreadyFixed <- str_detect("; removed unreliable values",string = ts[[ti]]$paleoData_QCnotes)
+  }
+
+  if(length(bad) > 0){#then fix it
+    if(alreadyFixed){
+      print(str_c(ts[[1]]$dataSetName,"-",ts[[ti]]$paleoData_variableNameOriginal,": already fixed!"))
+    }else{
+      print(str_c(ts[[1]]$dataSetName,"-",ts[[ti]]$paleoData_variableNameOriginal,": moving and removing unreliable values"))
+      temp <- ts[[ti]]$paleoData_values
+
+      #bad values
+      nas <- matrix(NA,nrow = length(rel))
+      nas[bad] <- temp
+
+
+      tempBad <- ts[[ti]] #copy the temperature values
+      tempBad$paleoData_variableName <- str_c("nonReliable",ts[[ti]]$paleoData_variableName)
+      tempBad$paleoData_variableNameOriginal <- NA
+
+      tempBad$paleoData_TSid <- createTSid()
+      tempBad$paleoData_useInGlobalTemperatureAnalysis <- FALSE
+      tempBad$paleoData_values <- nas
+
+      ts[[length(ts)]] <- tempBad
+      ts[[ti]]$paleoData_values[bad] <- NA
+      ts[[ti]]$paleoData_QCnotes <- str_c(ts[[ti]]$paleoData_QCnotes,"; removed unreliable values")
+    }
+  }
+  return(ts)
+}

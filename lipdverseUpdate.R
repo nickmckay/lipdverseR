@@ -7,7 +7,7 @@ Sys.setenv(RSTUDIO_PANDOC = "/Applications/RStudio.app/Contents/MacOS/pandoc")
 library(lipdverseR)
 library(googledrive)
 
-try(updateProject("globalHolocene","~/Dropbox/HoloceneLiPDLibrary/masterDatabase/","~/GitHub/lipdverse/html/",qcId = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",googEmail = "nick.mckay2@gmail.com",updateWebpages = TRUE))
+try(updateProject("globalHolocene","~/Dropbox/HoloceneLiPDLibrary/masterDatabase/","~/GitHub/lipdverse/html/",qcId = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",lastUpdateId = "1qLRMCfDMbTyffJBWlIj3Zw4CAhJY2SECIY-ckcZ2Wak",googEmail = "nick.mckay2@gmail.com",updateWebpages = TRUE))
 
 drive_share(as_id("1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug"),role = "writer", type = "anyone")
 

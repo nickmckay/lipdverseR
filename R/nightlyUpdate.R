@@ -124,6 +124,7 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 #' @param lipdDir authority directory for a lipd file
 #' @param webDirectory directory for webserver
 #' @param qcId google sheets ID for the qc sheet
+#' @param lastUpdateId google sheets ID for the last version
 #' @param updateWebpages update lipdverse webpages (default = TRUE). Usually TRUE unless troubleshooting.
 #' @param googEmail google user ID
 #' @import purrr
@@ -132,7 +133,7 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 #' @import lipdR
 #' @import geoChronR
 #' @export
-updateProject <- function(project,lipdDir,webDirectory,qcId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE){
+updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE){
 #
 # project <- "test"
 # lipdDir <- "~/Dropbox/LiPD/namChironomid/"
@@ -151,6 +152,9 @@ if(!toUpdate){
 
 #1. load in (potentially updated) files
 D <- readLipd(lipdDir)
+D <- purrr::map(D,fixExcelIssues)
+
+
 #check for TSid
 TS <- extractTs(D)
 
@@ -158,10 +162,10 @@ TS <- extractTs(D)
 TS <- standardizeTsValues(TS)
 TS <- fix_pubYear(TS)
 TS <- fixKiloyearsTs(TS)
+TS <- purrr::map(TS,removeEmptyInterpretationsFromTs)
 
 
-
-
+#get some relevant information
 TSid <- geoChronR::pullTsVariable(TS,"paleoData_TSid")
 udsn <- unique(geoChronR::pullTsVariable(TS,"dataSetName"))
 
@@ -186,6 +190,8 @@ TSid[et] <- ntsid
 TS <- pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
 }
 
+
+
 sTS <- splitInterpretationByScope(TS)
 
 #2. Create a new qc sheet from files
@@ -193,15 +199,17 @@ qcC <- createQCdataFrame(sTS,templateId = qcId)
 readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv"))
 
 #3. Get the updated QC sheet from google
+#first, lock editing
 drive_share(as_id(qcId),role = "reader", type = "anyone")
 
-#first, lock editing
 
 
 #now get the file
 qcB <- getGoogleQCSheet(qcId)
 readr::write_csv(qcB,path = file.path(webDirectory,project,projVersion,"qcGoog.csv"))
 
+lu <- getGoogleQCSheet(lastUpdateId)
+readr::write_csv(lu,file.path(webDirectory,project,"lastUpdate.csv"))
 
 #4. Load in the old QC sheet (from last update), and merge with new ones
 rosetta <- lipdverseR::rosettaStone()
@@ -232,6 +240,7 @@ nTS <- combineInterpretationByScope(nsTS)
 #5b. Clean TS
 nTS <- fix_pubYear(nTS)
 nTS <- standardizeTsValues(nTS)
+nTS <- purrr::map(nTS,removeEmptyInterpretationsFromTs)
 
 #5c rebuild database
 nD <- collapseTs(nTS)
@@ -261,23 +270,26 @@ qcF <- createQCdataFrame(sTSF,templateId = qcId)
 
 qc2w <- qcF
 qc2w[is.na(qc2w)] <- ""
-readr::write_csv(qc2w,path = file.path(webDirectory,project,"lastUpdate.csv"))
 
+readr::write_csv(qc2w,path = file.path(webDirectory,project,"newLastUpdate.csv"))
+
+googledrive::drive_update(file = googledrive::as_id(lastUpdateId),media = file.path(webDirectory,project,"newLastUpdate.csv"))
+newName <- str_c(project," v.",projVersion," QC sheet")
 
 newName <- str_c(project," v.",projVersion," QC sheet")
 
-googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"lastUpdate.csv"),name = newName)
+googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"newLastUpdate.csv"),name = newName)
+googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 
 #8 write lipd files
 unlink(x = list.files(lipdDir,pattern = "*.lpd",full.names = TRUE),force = TRUE, recursive = TRUE)
 
 DF <- purrr::map(DF,removeEmptyPubs)
 
-writeLipd(DF,path = lipdDir)
+writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE)
 
 
 #9 update the google version file
-googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
 versionDf$versionCreated <- lubridate::ymd_hms(versionDf$versionCreated)
 

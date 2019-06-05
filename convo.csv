@@ -81,6 +81,7 @@ units,paleoData_units,character
 useInGlobalHoloceneTemperature,paleoData_useHoloceneTemp,character
 useInGlobalHolocene,paleoData_useInGlobalTemperatureAnalysis,character
 variableName,paleoData_variableName,character
+variableNameOriginal,paleoData_variableNameOriginal,character
 pub1_authors,pub1_author,author
 pub1_citation,pub1_citation,character
 pub1_citeKey,pub1_citeKey,character
