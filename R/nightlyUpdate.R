@@ -152,7 +152,7 @@ if(!toUpdate){
 
 #1. load in (potentially updated) files
 D <- readLipd(lipdDir)
-D <- purrr::map(D,fixExcelIssues)
+#D <- purrr::map(D,fixExcelIssues)
 
 
 #check for TSid
@@ -222,8 +222,11 @@ qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv")) %
   purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
 
+#this should fix conflicts that shouldnt exist
+qc <- resolveDumbConflicts(qc)
+
 #find differences for log
-diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse")
+diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
 daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
 
 

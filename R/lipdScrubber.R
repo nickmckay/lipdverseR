@@ -462,3 +462,33 @@ unreliable <- function(ts,ti,ri){
   }
   return(ts)
 }
+
+#resolve daff conflicts
+#' Fixes conflicts that shouldn't exist
+#'
+#' @param qc
+#'
+#' @return qc
+#' @export
+resolveDumbConflicts <- function(qc){
+  wc <- daff::which_conflicts(qc)
+  if(length(wc)>0){
+    for(i in 1:length(wc)){
+      tr <- qc[wc[i],]
+      wcell <- which(stringr::str_detect(tr,fixed("(((")))
+
+      for(j in 1:length(wcell)){
+        tv <- qc[wc[i],wcell[j]]
+
+        last <- stringr::str_trim(stringr::str_extract(tv,"[^)]+$"))
+        conf <- stringr::str_split(last," /// ",simplify = T)
+
+        if(conf[1] == conf[2]){
+          qc[wc[i],wcell[j]] <- conf[1]
+        }
+      }
+    }
+  }
+  return(qc)
+}
+

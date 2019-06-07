@@ -4,7 +4,7 @@
 \alias{updateProject}
 \title{Do a complete update to a project}
 \usage{
-updateProject(project, lipdDir, webDirectory, qcId,
+updateProject(project, lipdDir, webDirectory, qcId, lastUpdateId,
   versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
   googEmail = NULL, updateWebpages = TRUE)
 }
@@ -16,6 +16,8 @@ updateProject(project, lipdDir, webDirectory, qcId,
 \item{webDirectory}{directory for webserver}
 
 \item{qcId}{google sheets ID for the qc sheet}
+
+\item{lastUpdateId}{google sheets ID for the last version}
 
 \item{googEmail}{google user ID}
 

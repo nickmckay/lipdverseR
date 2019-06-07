@@ -338,6 +338,10 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
 
   for(cc in plotOrder){#for each column..
     #regular metadata
+    if(length(thisTS[[cc]]$paleoData_units) == 0){
+      thisTS[[cc]]$paleoData_units <- "missing"
+    }
+
 
     if(is.na(thisTS[[cc]]$paleoData_units)){
       thisTS[[cc]]$paleoData_units <- "unitless"
