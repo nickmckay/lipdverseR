@@ -4,13 +4,14 @@
 # for(i in 1:length(D)){
 # L <- D[[i]]
 #   ts <- extractTs(L)
+#   sts <- splitInterpretationByScope(ts)
 #
-#   usein <- try(geoChronR::pullTsVariable(ts,"paleoData_useInGlobalTemperatureAnalysis"))
+#   sg <- try(geoChronR::pullTsVariable(sts,"climateInterpretation1_seasonalityGeneral"))
 #   if(class(usein)=="try-error"){
 #     next
 #   }
 #
-#   tc <- which(str_detect(usein,"[0-9]"))
+#   tc <- which(str_detect(usein,"combine"))
 #
 #   if(length(tc) > 1){
 #     print(paste("compositing",L$dataSetName))

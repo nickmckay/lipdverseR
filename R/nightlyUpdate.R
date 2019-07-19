@@ -151,12 +151,22 @@ if(!toUpdate){
 #an update is needed!!!
 
 #1. load in (potentially updated) files
+filesToUltimatelyDelete <- lipdR:::get_lipd_paths(lipdDir)
 D <- readLipd(lipdDir)
+D <- purrr::map(D,nUniqueAges)
 #D <- purrr::map(D,fixExcelIssues)
+
+
+#1a. Screen by some criterion...
+
 
 
 #check for TSid
 TS <- extractTs(D)
+
+#create a proxyLump from proxy for later standardization
+pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
+TS <- geoChronR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
 
 #Do some cleaning
 TS <- standardizeTsValues(TS)
@@ -213,12 +223,12 @@ readr::write_csv(lu,file.path(webDirectory,project,"lastUpdate.csv"))
 
 #4. Load in the old QC sheet (from last update), and merge with new ones
 rosetta <- lipdverseR::rosettaStone()
-qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv")) %>%
+qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv"),guess_max = Inf) %>%
   purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 
-qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv")) %>%
+qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv"),guess_max = Inf) %>%
   purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
-qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv")) %>%
+qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"),guess_max = Inf) %>%
   purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
 
@@ -285,7 +295,7 @@ googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webD
 googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 
 #8 write lipd files
-unlink(x = list.files(lipdDir,pattern = "*.lpd",full.names = TRUE),force = TRUE, recursive = TRUE)
+unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
 
 DF <- purrr::map(DF,removeEmptyPubs)
 
@@ -326,7 +336,7 @@ readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
 
 googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
 #give permissions back
-drive_share(as_id(qcId),role = "writer", type = "anyone")
+#drive_share(as_id(qcId),role = "writer", type = "user",emailAddress = "")
 
 }
 
