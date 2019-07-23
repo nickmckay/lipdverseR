@@ -164,9 +164,28 @@ D <- purrr::map(D,nUniqueAges)
 #check for TSid
 TS <- extractTs(D)
 
-#create a proxyLump from proxy for later standardization
+#create grouping terms for later standardization
+
+#proxy lumps
 pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
 TS <- geoChronR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
+
+#inferred material
+pl <- geoChronR::pullTsVariable(TS,"paleoData_inferredMaterial")
+TS <- geoChronR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
+
+#interpretation variable groups
+
+pl <- geoChronR::pullTsVariable(TS,"interpretation1_variable")
+TS <- geoChronR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
+
+pl <- geoChronR::pullTsVariable(TS,"interpretation2_variable")
+TS <- geoChronR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
+
+pl <- geoChronR::pullTsVariable(TS,"interpretation3_variable")
+TS <- geoChronR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
+
+
 
 #Do some cleaning
 TS <- standardizeTsValues(TS)
