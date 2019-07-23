@@ -6,7 +6,9 @@ direction,climateInterpretation1_direction,character
 seasonality,climateInterpretation1_seasonality,character
 climateVariable,climateInterpretation1_variable,character
 climateVariableDetail,climateInterpretation1_variableDetail,character
+annual?,climateInterpretation1_isAnnual,character
 collectionName,collectionName,character
+contributorName,contributorName,character
 dataPub1_author,dataPub1_author,character
 dataPub1_citeKey,dataPub1_citeKey,character
 dataPub1_institution,dataPub1_institution,character
@@ -15,6 +17,7 @@ dataPub1_title,dataPub1_title,character
 dataPub1_type,dataPub1_type,character
 dataPub1_url,dataPub1_url,character
 dataSetName,dataSetName,character
+dataContributor,dataContributor,character
 elevation,geo_elevation,numeric
 lat,geo_latitude,numeric
 lon,geo_longitude,numeric
@@ -73,7 +76,7 @@ QC Certification,paleoData_QCCertification,character
 QC comments,paleoData_QCnotes,character
 sensorIntegrationTime,paleoData_sensorIntegrationTime,character
 sensorIntegrationTimeBasis,paleoData_sensorIntegrationTimeBasis,character
-sensorintegrationTimeUncertainty,paleoData_sensorintegrationTimeUncertainty,character
+sensorIntegrationTimeUncertainty,paleoData_sensorIntegrationTimeUncertainty,character
 sensorIntegrationTimeUncertaintyType,paleoData_sensorIntegrationTimeUncertaintyType,character
 sensorIntegrationTimeUnits,paleoData_sensorIntegrationTimeUnits,character
 TSid,paleoData_TSid,character
@@ -94,3 +97,16 @@ pub2_citation,pub2_citation,character
 pub2_citeKey,pub2_citeKey,character
 pub2_doi,pub2_doi,character
 pub2_year,pub2_year,numeric
+createdBy,createdBy,character
+calibration_seasonality,calibration_seasonality,character
+sensorSpecies,paleoData_sensorSpecies,character
+meanHoloceneValue,paleoData_meanValue12k,numeric
+medianHoloceneResolution,paleoData_medianRes12k,numeric
+proxyDetail,paleoData_proxyDetail,character
+datum,paleoData_datum,character
+agesPerKyr,agesPerKyr,numeric
+countryOcean,geo_countryOcean,character
+DK's(keep),paleoData_temp12kDkIndex,numeric
+seasonGeneral,climateInterpretation1_seasonalityGeneral,character
+last updated,paleoData_QCLastUpdated,character
+Remaining issues,paleoData_QCRemainingIssues,character
