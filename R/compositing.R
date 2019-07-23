@@ -1,34 +1,36 @@
-# notEqual = c()
-# composited = c()
-# onlyone = c()
-# for(i in 1:length(D)){
-# L <- D[[i]]
-#   ts <- extractTs(L)
-#
-#   usein <- try(geoChronR::pullTsVariable(ts,"paleoData_useInGlobalTemperatureAnalysis"))
-#   if(class(usein)=="try-error"){
-#     next
-#   }
-#
-#   tc <- which(str_detect(usein,"[0-9]"))
-#
-#   if(length(tc) > 1){
-#     print(paste("compositing",L$dataSetName))
-#     nts <- try(composite_sameSamples(ts,tc,minOverlap = 6))
-#     if(class(nts)=="try-error"){
-#       notEqual = c(notEqual,L$dataSetName)
-#     }else{
-#     composited = c(composited,L$dataSetName)
-#     L <- collapseTs(nts)
-#     writeLipd(L,"~/Dropbox/HoloceneLiPDLibrary/masterDatabase/")
-#     }
-#   }else if(length(tc)==1){
-#     onlyone <- c(onlyone,L$dataSetName)
-#   }
-#
-#
-#
-# }
+library(tidyverse)
+notEqual = c()
+composited = c()
+onlyone = c()
+for(i in 1:length(D)){
+L <- D[[i]]
+  ts <- extractTs(L)
+  sts <- splitInterpretationByScope(ts)
+
+  usein <- try(geoChronR::pullTsVariable(sts,"climateInterpretation1_seasonalityGeneral"))
+  if(class(usein)=="try-error"){
+    next
+  }
+
+  tc <- which(str_detect(usein,"combin"))
+
+  if(length(tc) > 1){
+    print(paste("compositing",L$dataSetName))
+    nts <- try(composite_sameSamples(ts,tc,minOverlap = 6))
+    if(class(nts)=="try-error"){
+      notEqual = c(notEqual,L$dataSetName)
+    }else{
+    composited = c(composited,L$dataSetName)
+    L <- collapseTs(nts)
+    #writeLipd(L,"~/Dropbox/HoloceneLiPDLibrary/masterDatabase/")
+    }
+  }else if(length(tc)==1){
+    onlyone <- c(onlyone,L$dataSetName)
+  }
+
+
+
+}
 
 
 #composite on same depth scale
