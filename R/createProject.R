@@ -51,13 +51,14 @@ varNames <- sapply(TS, "[[","paleoData_variableName")
 
 
 #All datasets
-dsn <- sapply(TS,"[[","dataSetName")
+dsn <- geoChronR::pullTsVariable(TS,"dataSetName")
 ui <- which(!duplicated(dsn))
 udsn <- dsn[ui]
-lat <- sapply(TS,"[[","geo_latitude")[ui]
-lon <- sapply(TS,"[[","geo_longitude")[ui]
-elev <- sapply(TS,"[[","geo_elevation")[ui]
-archiveType <- sapply(TS,"[[","archiveType")[ui]
+lat <- geoChronR::pullTsVariable(TS,"geo_latitude")[ui]
+lon <- geoChronR::pullTsVariable(TS,"geo_longitude")[ui]
+elev <- geoChronR::pullTsVariable(TS,"geo_elevation")[ui]
+
+archiveType <- geoChronR::pullTsVariable(TS,"archiveType")[ui]
 link <- paste0(udsn,".html") %>%
   str_replace_all("'","_")
 
