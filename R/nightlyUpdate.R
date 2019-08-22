@@ -135,10 +135,14 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 #' @export
 updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE){
 #
-# project <- "test"
-# lipdDir <- "~/Dropbox/LiPD/namChironomid/"
-# qcId <- "1lVsU5v3V1Cmq1xOO6LVchO2M2K45_QHv5SiqPb3xIaQ"
-# webDirectory <- "/Users/npm4/GitHub/lipdverse/html"
+project <- "globalHolocene"
+lipdDir <- "~/Dropbox/HoloceneLiPDLibrary/masterDatabase/"
+qcId <- "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug"
+webDirectory <- "/Users/npm4/GitHub/lipdverse/html"
+updateWebpages = FALSE
+lastUpdateId = "1qLRMCfDMbTyffJBWlIj3Zw4CAhJY2SECIY-ckcZ2Wak"
+googEmail = "nick.mckay2@gmail.com"
+
 
 #authorize google
 googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
@@ -152,9 +156,9 @@ if(!toUpdate){
 
 #1. load in (potentially updated) files
 filesToUltimatelyDelete <- lipdR:::get_lipd_paths(lipdDir)
-D <- readLipd(lipdDir)
+D <- lipdR::readLipd(lipdDir)
 D <- purrr::map(D,nUniqueAges)
-#D <- purrr::map(D,fixExcelIssues)
+D <- purrr::map(D,fixExcelIssues)
 
 
 #1a. Screen by some criterion...
@@ -162,9 +166,11 @@ D <- purrr::map(D,nUniqueAges)
 
 
 #check for TSid
-TS <- extractTs(D)
+TS <- lipdR::extractTs(D)
 
 #create grouping terms for later standardization
+
+#TO DO!# remove entries that don't fall into the groups/lumps!
 
 #proxy lumps
 pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
@@ -214,14 +220,14 @@ if(!dir.exists(file.path(webDirectory,project,projVersion))){
 #create TSids if needed
 et <- which(is.na(TSid))
 if(length(et) > 0){
-ntsid <- purrr::map_chr(et,createTSid)
+ntsid <- purrr::map_chr(et,lipdR::createTSid)
 TSid[et] <- ntsid
-TS <- pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
+TS <- geoChronR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
 }
 
 
 
-sTS <- splitInterpretationByScope(TS)
+sTS <- lipdR::splitInterpretationByScope(TS)
 
 #2. Create a new qc sheet from files
 qcC <- createQCdataFrame(sTS,templateId = qcId)
@@ -229,7 +235,7 @@ readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv
 
 #3. Get the updated QC sheet from google
 #first, lock editing
-drive_share(as_id(qcId),role = "reader", type = "anyone")
+googledrive::drive_share(as_id(qcId),role = "reader", type = "anyone")
 
 
 
@@ -252,7 +258,7 @@ qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"),gu
 qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
 
 #this should fix conflicts that shouldnt exist
-qc <- resolveDumbConflicts(qc)
+#qc <- resolveDumbConflicts(qc)
 
 #find differences for log
 diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)

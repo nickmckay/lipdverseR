@@ -361,10 +361,16 @@ return(tsi)
 #' @return L
 #' @export
 fixExcelIssues <- function(L){
-  ts <- extractTs(L)
+  ts <- lipdR::extractTs(L)
 
-  vn <- pullTsVariable(ts,"paleoData_variableName")
-  vno <- try(pullTsVariable(ts,"paleoData_variableNameOriginal"))
+  vn <- try(geoChronR::pullTsVariable(ts,"paleoData_variableName"))
+  if(class(vn)=="try-error"){
+    print("NO PALEODATA VARIABLENAMES!")
+    return(L)
+  }
+
+
+  vno <- try(geoChronR::pullTsVariable(ts,"paleoData_variableNameOriginal"))
   if(class(vno)=="try-error"){
     vno <- vn
   }
@@ -411,7 +417,7 @@ fixExcelIssues <- function(L){
     }
   }
 
-  newL <- collapseTs(ts)
+  newL <- lipdR::collapseTs(ts)
   return(newL)
 
 }

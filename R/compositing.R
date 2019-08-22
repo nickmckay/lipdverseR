@@ -1,4 +1,4 @@
-
+#
 # notEqual = c()
 # composited = c()
 # onlyone = c()
@@ -7,12 +7,12 @@
 #   ts <- extractTs(L)
 #   sts <- splitInterpretationByScope(ts)
 #
-#   sg <- try(geoChronR::pullTsVariable(sts,"climateInterpretation1_seasonalityGeneral"))
-#   if(class(usein)=="try-error"){
+#   sg <- try(geoChronR::pullTsVariable(sts,"climateInterpretation1_seasonalityGeneral"),silent = TRUE)
+#   if(class(sg)=="try-error"){
 #     next
 #   }
 #
-#   tc <- which(str_detect(usein,"combine"))
+#   tc <- which(str_detect(sg,"combine"))
 #
 #   if(length(tc) > 1){
 #     print(paste("compositing",L$dataSetName))
@@ -27,9 +27,6 @@
 #   }else if(length(tc)==1){
 #     onlyone <- c(onlyone,L$dataSetName)
 #   }
-#
-#
-#
 # }
 
 
