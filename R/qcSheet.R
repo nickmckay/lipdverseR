@@ -5,13 +5,13 @@
 #'
 #' @return
 #' @export
-nUniqueAges <- function(L,maxAge = 12000,c14names = c("age14C","x14Cage","x14C","DateBP")){
+nUniqueAges <- function(L,maxAge = 12000,c14names = c("age")){
   ages <- c()
   if(length(L$chronData)>0){
     for(c in 1:length(L$chronData)){
       for(m in 1:length(L$chronData[[c]]$measurementTable)){
         #find which 14C column
-        wc <- which(c14names %in% names(L$chronData[[c]]$measurementTable[[m]]))
+        wc <- which(c14names %in% tolower(names(L$chronData[[c]]$measurementTable[[m]])))
         if(length(wc)>0){
           tc = min(wc)
           au <- L$chronData[[c]]$measurementTable[[m]][[c14names[tc]]]$units
@@ -32,6 +32,110 @@ nUniqueAges <- function(L,maxAge = 12000,c14names = c("age14C","x14Cage","x14C",
   return(L)
 }
 
+#' Get the number of good 14C ages in a Lipd file
+#'
+#' @param L
+#' @param maxAge
+#'
+#' @return
+#' @export
+nGoodAges <- function(L,maxAge = 12000,c14names = c("age")){
+  cts <- lipdR::extractTs(L,mode = "chron")
+
+  if(length(cts)>0){#then there's a chron
+
+    #fix kyr
+    cts <- fixKiloyearsTsChron(cts)
+
+
+    vn <- geoChronR::pullTsVariable(cts,"chronData_variableName")
+    ati <- which(vn == "age_type")
+    if(length(ati)==0){
+      out <- "no age_type column"
+    }
+    ai <- which(vn == "age")
+    if(length(ai)==0){
+      out <- "no age column"
+    }
+
+    at <- cts[[ati[1]]]$chronData_values
+    a <- cts[[ai[1]]]$chronData_values
+
+
+
+
+    #find good age types
+    ind <- which(grepl("14c",at, ignore.case = TRUE) |
+                   grepl("c14",at, ignore.case = TRUE) |
+                   grepl("u/th",at, ignore.case = TRUE) |
+                   grepl("tephra",at, ignore.case = TRUE)
+    )
+
+
+
+    goodAge <- a < maxAge
+    goodAge[is.na(goodAge)] <- FALSE
+    goodi <- which(goodAge)
+    allGood <- intersect(ind,goodi)
+
+    nGoodAges <- length(allGood)
+    L$nUniqueAges <- nGoodAges
+    return(L)
+
+  }else{
+    return(L)
+  }
+}
+
+
+
+#' Get the number of good 14C ages in a Lipd file
+#'
+#' @param L
+#' @param maxAge
+#'
+#' @return
+#' @export
+nOtherAges <- function(L,maxAge = 12000,c14names = c("age")){
+  cts <- lipdR::extractTs(L,mode = "chron")
+
+  if(length(cts)>0){#then there's a chron
+    vn <- geoChronR::pullTsVariable(cts,"chronData_variableName")
+    ati <- which(vn == "age_type")
+    if(length(ati)==0){
+      out <- "no age_type column"
+    }
+    ai <- which(vn == "age")
+    if(length(ai)==0){
+      out <- "no age column"
+    }
+
+    at <- cts[[ati[1]]]$chronData_values
+    a <- cts[[ai[1]]]$chronData_values
+
+
+
+
+    #find good age types
+    ind <- which(!grepl("14c",at, ignore.case = TRUE) &
+                   !grepl("c14",at, ignore.case = TRUE) &
+                   !grepl("u/th",at, ignore.case = TRUE) &
+                   !grepl("tephra",at, ignore.case = TRUE)
+    )
+
+    goodAge <- a < maxAge
+    goodAge[is.na(goodAge)] <- FALSE
+    goodi <- which(goodAge)
+    allGood <- intersect(ind,goodi)
+
+    nGoodAges <- length(allGood)
+    L$nUniqueOtherAges <- nGoodAges
+    return(L)
+
+  }else{
+    return(L)
+  }
+}
 
 
 #' Flatten authors list to a string
@@ -347,9 +451,9 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   }
 
   getRes12k <- function(tsi){
-    gi <- which(tsi$age<12000 & is.numeric(tsi$age))
+    gi <- which(tsi$age<12000 & is.numeric(tsi$age) & !is.na(tsi$paleoData_values))
     if(length(gi)>=1){
-      out <- median(abs(diff(tsi$age[gi])),na.rm = TRUE)
+      out <- median(abs(diff(sort(tsi$age[gi]))),na.rm = TRUE)
     }else{
       out <- NA
     }
@@ -389,9 +493,23 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   }else{
     agesPerKyr <- matrix(NA,nrow = length(fsTS) )
   }
+
+  #other ages per kyr
+
+  nUniqueOtherAges <- try(pullTsVariable(fsTS,"nUniqueOtherAges"))
+  if(!class(nUniqueOtherAges)=="try-error"){
+    maxHoloAge <- maxAge
+    maxHoloAge[maxAge>12000] <- 12000
+    otherAgesPerKyr <- 1000*nUniqueOtherAges/(maxHoloAge-minAge)
+  }else{
+    otherAgesPerKyr <- matrix(NA,nrow = length(fsTS) )
+  }
+
   fsTS <- pushTsVariable(fsTS,"minYear",minAge,createNew = TRUE)
   fsTS <- pushTsVariable(fsTS,"maxYear",maxAge, createNew = TRUE)
   fsTS <- pushTsVariable(fsTS,"agesPerKyr",agesPerKyr,createNew = TRUE)
+  fsTS <- pushTsVariable(fsTS,"otherAgesPerKyr",otherAgesPerKyr,createNew = TRUE)
+
 
   #vectors to create
   toPull <- names(qcs) #get all names from template

@@ -93,7 +93,7 @@ for(i in 1:nrow(map.meta)){
 
     #look for chronTS
     chronTS <- try(extractTs(D[[udsn[i]]],whichtables = "meas",mode = "chron"))
-    if(grepl(class(chronTS),"try-error")){
+    if(grepl(class(chronTS),"try-error") | length(chronTS)==0){
       chronTS <- NA
     }
     save(chronTS,file = file.path(webDirectory,"chronTemp.RData"))

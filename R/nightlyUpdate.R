@@ -44,11 +44,11 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   lastMod <- lubridate::with_tz(lubridate::ymd_hms(lastMod[[which.max(unlist(lastMod))]],tz = "America/Phoenix"),tzone = "UTC")
 
 
-#  check based on folder modification time
-#   filesNeedUpdating <- TRUE
-#   if(lastUpdate > lastMod){
-#     filesNeedUpdating <- FALSE
-#   }
+  #  check based on folder modification time
+  #   filesNeedUpdating <- TRUE
+  #   if(lastUpdate > lastMod){
+  #     filesNeedUpdating <- FALSE
+  #   }
 
   #most recent QC update
   info <- googledrive::drive_get(googledrive::as_id(qcId))
@@ -133,235 +133,243 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 #' @import lipdR
 #' @import geoChronR
 #' @export
-updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE){
-#
-project <- "globalHolocene"
-lipdDir <- "~/Dropbox/HoloceneLiPDLibrary/masterDatabase/"
-qcId <- "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug"
-webDirectory <- "/Users/npm4/GitHub/lipdverse/html"
-updateWebpages = FALSE
-lastUpdateId = "1qLRMCfDMbTyffJBWlIj3Zw4CAhJY2SECIY-ckcZ2Wak"
-googEmail = "nick.mckay2@gmail.com"
+updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE){
+  #
+  # project <- "globalHolocene"
+  # lipdDir <- "~/Dropbox/HoloceneLiPDLibrary/masterDatabase/"
+  # qcId <- "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug"
+  # webDirectory <- "/Users/npm4/GitHub/lipdverse/html"
+  # updateWebpages = FALSE
+  # lastUpdateId = "1qLRMCfDMbTyffJBWlIj3Zw4CAhJY2SECIY-ckcZ2Wak"
+  # googEmail = "nick.mckay2@gmail.com"
 
 
-#authorize google
-googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
-#check if update is necessary
-toUpdate <- updateNeeded(project,webDirectory,lipdDir,qcId,googEmail = googEmail)
+  #authorize google
+  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
+  #check if update is necessary
+  toUpdate <- updateNeeded(project,webDirectory,lipdDir,qcId,googEmail = googEmail)
 
-if(!toUpdate){
-  return("No update needed")
-}
-#an update is needed!!!
+  if(!toUpdate){
+    return("No update needed")
+  }
+  #an update is needed!!!
 
-#1. load in (potentially updated) files
-filesToUltimatelyDelete <- lipdR:::get_lipd_paths(lipdDir)
-D <- lipdR::readLipd(lipdDir)
-D <- purrr::map(D,nUniqueAges)
-D <- purrr::map(D,fixExcelIssues)
+  #1. load in (potentially updated) files
+  filesToUltimatelyDelete <- lipdR:::get_lipd_paths(lipdDir)
+  D <- lipdR::readLipd(lipdDir)
 
+  if(standardizeTerms){
+    D <- purrr::map(D,nGoodAges)
+    D <- purrr::map(D,nOtherAges)
+    D <- purrr::map(D,fixExcelIssues)
+    D <- purrr::map(D,standardizeChronVariableNames)
+  }
 
-#1a. Screen by some criterion...
+  #1a. Screen by some criterion...
 
 
 
-#check for TSid
-TS <- lipdR::extractTs(D)
+  #check for TSid
+  TS <- lipdR::extractTs(D)
 
-#create grouping terms for later standardization
+  #create grouping terms for later standardization
 
-#TO DO!# remove entries that don't fall into the groups/lumps!
+  #TO DO!# remove entries that don't fall into the groups/lumps!
+  if(standardizeTerms){
+    #proxy lumps
+    pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
+    TS <- geoChronR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
 
-#proxy lumps
-pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
-TS <- geoChronR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
+    #inferred material
+    pl <- geoChronR::pullTsVariable(TS,"paleoData_inferredMaterial")
+    TS <- geoChronR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
 
-#inferred material
-pl <- geoChronR::pullTsVariable(TS,"paleoData_inferredMaterial")
-TS <- geoChronR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
+    #interpretation variable groups
 
-#interpretation variable groups
+    pl <- geoChronR::pullTsVariable(TS,"interpretation1_variable")
+    TS <- geoChronR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
 
-pl <- geoChronR::pullTsVariable(TS,"interpretation1_variable")
-TS <- geoChronR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
+    pl <- geoChronR::pullTsVariable(TS,"interpretation2_variable")
+    TS <- geoChronR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
 
-pl <- geoChronR::pullTsVariable(TS,"interpretation2_variable")
-TS <- geoChronR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
+    pl <- geoChronR::pullTsVariable(TS,"interpretation3_variable")
+    TS <- geoChronR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
 
-pl <- geoChronR::pullTsVariable(TS,"interpretation3_variable")
-TS <- geoChronR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
 
 
+    #Do some cleaning
+    TS <- standardizeTsValues(TS)
+    TS <- fix_pubYear(TS)
+    TS <- fixKiloyearsTs(TS)
+    TS <- purrr::map(TS,removeEmptyInterpretationsFromTs)
+  }
 
-#Do some cleaning
-TS <- standardizeTsValues(TS)
-TS <- fix_pubYear(TS)
-TS <- fixKiloyearsTs(TS)
-TS <- purrr::map(TS,removeEmptyInterpretationsFromTs)
+  #get some relevant information
+  TSid <- geoChronR::pullTsVariable(TS,"paleoData_TSid")
+  udsn <- unique(geoChronR::pullTsVariable(TS,"dataSetName"))
 
+  #1b. New version name
+  projVersion <- tickVersion(project,udsn,googEmail = googEmail)
 
-#get some relevant information
-TSid <- geoChronR::pullTsVariable(TS,"paleoData_TSid")
-udsn <- unique(geoChronR::pullTsVariable(TS,"dataSetName"))
+  #setup new version
+  if(!dir.exists(file.path(webDirectory,project))){
+    dir.create(file.path(webDirectory,project))
+  }
 
-#1b. New version name
-projVersion <- tickVersion(project,udsn,googEmail = googEmail)
+  if(!dir.exists(file.path(webDirectory,project,projVersion))){
+    dir.create(file.path(webDirectory,project,projVersion))
+  }
 
-#setup new version
-if(!dir.exists(file.path(webDirectory,project))){
-  dir.create(file.path(webDirectory,project))
-}
 
-if(!dir.exists(file.path(webDirectory,project,projVersion))){
-  dir.create(file.path(webDirectory,project,projVersion))
-}
+  #create TSids if needed
+  et <- which(is.na(TSid))
+  if(length(et) > 0){
+    ntsid <- purrr::map_chr(et,lipdR::createTSid)
+    TSid[et] <- ntsid
+    TS <- geoChronR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
+  }
 
 
-#create TSids if needed
-et <- which(is.na(TSid))
-if(length(et) > 0){
-ntsid <- purrr::map_chr(et,lipdR::createTSid)
-TSid[et] <- ntsid
-TS <- geoChronR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
-}
 
+  sTS <- lipdR::splitInterpretationByScope(TS)
 
+  #2. Create a new qc sheet from files
+  qcC <- createQCdataFrame(sTS,templateId = qcId)
+  readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv"))
 
-sTS <- lipdR::splitInterpretationByScope(TS)
+  #3. Get the updated QC sheet from google
+  #first, lock editing
+  googledrive::drive_share(as_id(qcId),role = "reader", type = "anyone")
 
-#2. Create a new qc sheet from files
-qcC <- createQCdataFrame(sTS,templateId = qcId)
-readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv"))
 
-#3. Get the updated QC sheet from google
-#first, lock editing
-googledrive::drive_share(as_id(qcId),role = "reader", type = "anyone")
 
+  #now get the file
+  qcB <- getGoogleQCSheet(qcId)
+  readr::write_csv(qcB,path = file.path(webDirectory,project,projVersion,"qcGoog.csv"))
 
+  lu <- getGoogleQCSheet(lastUpdateId)
+  readr::write_csv(lu,file.path(webDirectory,project,"lastUpdate.csv"))
 
-#now get the file
-qcB <- getGoogleQCSheet(qcId)
-readr::write_csv(qcB,path = file.path(webDirectory,project,projVersion,"qcGoog.csv"))
+  #4. Load in the old QC sheet (from last update), and merge with new ones
+  rosetta <- lipdverseR::rosettaStone()
+  qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv"),guess_max = Inf) %>%
+    purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 
-lu <- getGoogleQCSheet(lastUpdateId)
-readr::write_csv(lu,file.path(webDirectory,project,"lastUpdate.csv"))
+  qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv"),guess_max = Inf) %>%
+    purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
+  qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"),guess_max = Inf) %>%
+    purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
+  qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
 
-#4. Load in the old QC sheet (from last update), and merge with new ones
-rosetta <- lipdverseR::rosettaStone()
-qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv"),guess_max = Inf) %>%
-  purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
+  #this should fix conflicts that shouldnt exist
+  #qc <- resolveDumbConflicts(qc)
 
-qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv"),guess_max = Inf) %>%
-  purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
-qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"),guess_max = Inf) %>%
-  purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
-qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
+  #find differences for log
+  diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
+  daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
 
-#this should fix conflicts that shouldnt exist
-#qc <- resolveDumbConflicts(qc)
 
-#find differences for log
-diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
-daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
+  #remove duplicate rows
+  qc <- dplyr::distinct(qc)
 
 
-#remove duplicate rows
-qc <- dplyr::distinct(qc)
+  #5. Update sTS from merged qc
+  nsTS <- updateFromQC(sTS,qc)
+  nTS <- combineInterpretationByScope(nsTS)
 
 
-#5. Update sTS from merged qc
-nsTS <- updateFromQC(sTS,qc)
-nTS <- combineInterpretationByScope(nsTS)
+  if(standardizeTerms){
+    #5b. Clean TS
+    nTS <- fix_pubYear(nTS)
+    nTS <- standardizeTsValues(nTS)
+    nTS <- purrr::map(nTS,removeEmptyInterpretationsFromTs)
+  }
 
+  #5c rebuild database
+  nD <- collapseTs(nTS)
 
+  #5d clean D
+  if(standardizeTerms){
+    nDt <- purrr::map(nD,removeEmptyPubs)
+    if(class(nDt) == "list"){
+      nD <- nDt
+    }
+  }
 
-#5b. Clean TS
-nTS <- fix_pubYear(nTS)
-nTS <- standardizeTsValues(nTS)
-nTS <- purrr::map(nTS,removeEmptyInterpretationsFromTs)
 
-#5c rebuild database
-nD <- collapseTs(nTS)
 
-#5d clean D
-nDt <- purrr::map(nD,removeEmptyPubs)
+  #6 Update lipdverse
+  if(updateWebpages){
+    createProjectDashboards(nD,nTS,webDirectory,project,projVersion,currentVersion = TRUE)
 
-if(class(nDt) == "list"){
-  nD <- nDt
-}
+    #load back in files
+    DF <- readLipd(file.path(webDirectory,project,projVersion))
+  }else{
+    DF <- nD
+  }
+  TSF <- extractTs(DF)
+  sTSF <- splitInterpretationByScope(TSF)
+  qcF <- createQCdataFrame(sTSF,templateId = qcId)
 
-#6 Update lipdverse
-if(updateWebpages){
-createProjectDashboards(nD,nTS,webDirectory,project,projVersion,currentVersion = TRUE)
 
-#load back in files
-DF <- readLipd(file.path(webDirectory,project,projVersion))
-}else{
-  DF <- nD
-}
-TSF <- extractTs(DF)
-sTSF <- splitInterpretationByScope(TSF)
-qcF <- createQCdataFrame(sTSF,templateId = qcId)
+  #7 Update QC sheet on google (and make a lastUpdate.csv file)
 
+  qc2w <- qcF
+  qc2w[is.na(qc2w)] <- ""
 
-#7 Update QC sheet on google (and make a lastUpdate.csv file)
+  readr::write_csv(qc2w,path = file.path(webDirectory,project,"newLastUpdate.csv"))
 
-qc2w <- qcF
-qc2w[is.na(qc2w)] <- ""
+  googledrive::drive_update(file = googledrive::as_id(lastUpdateId),media = file.path(webDirectory,project,"newLastUpdate.csv"))
+  newName <- str_c(project," v.",projVersion," QC sheet")
 
-readr::write_csv(qc2w,path = file.path(webDirectory,project,"newLastUpdate.csv"))
+  newName <- str_c(project," v.",projVersion," QC sheet")
 
-googledrive::drive_update(file = googledrive::as_id(lastUpdateId),media = file.path(webDirectory,project,"newLastUpdate.csv"))
-newName <- str_c(project," v.",projVersion," QC sheet")
+  googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"newLastUpdate.csv"),name = newName)
+  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 
-newName <- str_c(project," v.",projVersion," QC sheet")
+  #8 write lipd files
+  unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
 
-googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"newLastUpdate.csv"),name = newName)
-googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
+  DF <- purrr::map(DF,removeEmptyPubs)
 
-#8 write lipd files
-unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
+  writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE)
 
-DF <- purrr::map(DF,removeEmptyPubs)
 
-writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE)
+  #9 update the google version file
+  versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
+  versionDf$versionCreated <- lubridate::ymd_hms(versionDf$versionCreated)
 
 
-#9 update the google version file
-versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
-versionDf$versionCreated <- lubridate::ymd_hms(versionDf$versionCreated)
+  newRow <- versionDf[1,]
 
+  newRow$project <- project
+  pdm <- as.numeric(unlist(str_split(projVersion,"_")))
+  newRow$publication <- pdm[1]
+  newRow$dataset <- pdm[2]
+  newRow$metadata <- pdm[3]
+  newRow$dsns <- paste(unique(geoChronR::pullTsVariable(TSF,"dataSetName")),collapse = "|")
+  newRow$versionCreated <- lubridate::now(tzone = "UTC")
+  newRow$`zip MD5` <- directoryMD5(lipdDir)
 
-newRow <- versionDf[1,]
 
-newRow$project <- project
-pdm <- as.numeric(unlist(str_split(projVersion,"_")))
-newRow$publication <- pdm[1]
-newRow$dataset <- pdm[2]
-newRow$metadata <- pdm[3]
-newRow$dsns <- paste(unique(geoChronR::pullTsVariable(TSF,"dataSetName")),collapse = "|")
-newRow$versionCreated <- lubridate::now(tzone = "UTC")
-newRow$`zip MD5` <- directoryMD5(lipdDir)
 
+  #check for differences in dsns
+  dsndiff <- filter(versionDf,project == (!!project)) %>%
+    filter(versionCreated == max(versionCreated))
 
+  oldDsns <- stringr::str_split(dsndiff$dsns,pattern = "[|]",simplify = T)
+  newDsns <- stringr::str_split(newRow$dsns,pattern = "[|]",simplify = T)
 
-#check for differences in dsns
-dsndiff <- filter(versionDf,project == (!!project)) %>%
-  filter(versionCreated == max(versionCreated))
+  newRow$`dataSets removed` <- paste(setdiff(oldDsns,newDsns),collapse = "|")
+  newRow$`dataSets added` <- paste(setdiff(newDsns,oldDsns),collapse = "|")
 
-oldDsns <- stringr::str_split(dsndiff$dsns,pattern = "[|]",simplify = T)
-newDsns <- stringr::str_split(newRow$dsns,pattern = "[|]",simplify = T)
+  nvdf <- dplyr::bind_rows(versionDf,newRow)
 
-newRow$`dataSets removed` <- paste(setdiff(oldDsns,newDsns),collapse = "|")
-newRow$`dataSets added` <- paste(setdiff(newDsns,oldDsns),collapse = "|")
+  readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
 
-nvdf <- dplyr::bind_rows(versionDf,newRow)
-
-readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
-
-googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
-#give permissions back
-#drive_share(as_id(qcId),role = "writer", type = "user",emailAddress = "")
+  googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
+  #give permissions back
+  #drive_share(as_id(qcId),role = "writer", type = "user",emailAddress = "")
 
 }
 

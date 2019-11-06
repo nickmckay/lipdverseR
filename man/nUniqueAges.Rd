@@ -4,8 +4,7 @@
 \alias{nUniqueAges}
 \title{Get the number of unique 14C ages in a Lipd file}
 \usage{
-nUniqueAges(L, maxAge = 12000, c14names = c("age14C", "x14Cage", "x14C",
-  "DateBP"))
+nUniqueAges(L, maxAge = 12000, c14names = c("age"))
 }
 \arguments{
 \item{maxAge}{}
