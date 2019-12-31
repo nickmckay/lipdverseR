@@ -127,7 +127,7 @@ removeEmptyPubs <- function(L){
 
 getVals <- function(key,conv){
   alts <- conv
-  logTab <- map_df(alts,function(x) {tolower(key) == fixed(tolower(x))})
+  logTab <- purrr::map_df(alts,function(x) {tolower(key) == stringr::fixed(tolower(x))})
   repi <- which(rowSums(logTab,na.rm = T) > 0)
   if(length(repi) > 1){
     warning("Multiple matches for conversion - returning original")
@@ -138,6 +138,23 @@ getVals <- function(key,conv){
     out <- conv$`Official Name`[repi]
   }
   return(out)
+}
+
+#' standardize variableNames in a file
+#'
+#' @param L
+#' @description standardizes the variable names in the chronData measurement tables.
+#' @return L
+#' @exportlibrar
+standardizeChronVariableNames <- function(L){
+  if(is.null(L$chronData[[1]]$measurementTable[[1]])){
+    return(L)
+  }else{
+    cts <- try(extractTs(L,mode = "chron"))
+    scts <- standardizeValues(cts,"chronData_variableName","1fIYSrgqsLSDqAQOgg_zsoibUbKxs_IUTht5r7GynszI")
+    L2 <- collapseTs(scts)
+    return(L2)
+  }
 }
 
 
@@ -157,7 +174,7 @@ standardizeValues <- function(TS,tsKey,googId){
   #check for duplicates? not yet
 
   key <- geoChronR::pullTsVariable(TS,tsKey)
-  newKeys <- map_chr(key,getVals,conv)
+  newKeys <- purrr::map_chr(key,getVals,conv)
 
   #find differences
   diffKeys <- which(newKeys != key)
@@ -180,6 +197,54 @@ standardizeValues <- function(TS,tsKey,googId){
   return(TS)
 
 }
+
+
+#' standardize values WITHIN a paleo(chron)Data_values field
+#' @description Importantly, this will run on every entry you give it, so you probably want to filter first.
+#' @param TS
+#' @param googId
+#' @import purrr
+#' @import geoChronR
+#' @return TS
+#' @export
+standardizeValuesInValues <- function(TS,googId){
+
+  conv <- getConverter(googId,howLong = 30)
+  #check for duplicates? not yet
+
+  mode <- TS[[1]]$mode
+
+  #create a function
+  miniFun <- function(thisTs,conv,mode){
+  values <- thisTs[[paste0(mode,"Data_values")]]
+  newVals <- map_chr(values,getVals,conv)
+
+    #find differences
+  diffVals <- which(newVals != values)
+
+  if(length(diffVals)>0){
+  #change
+  values[diffVals] <- newVals[diffVals]
+  }else{
+    return(thisTs)
+  }
+
+  #push back
+  thisTs[[paste0(mode,"Data_values")]] <- values
+
+  return(thisTs)
+  }
+
+  #run for all entries
+  nTS <- map(TS,miniFun,conv = conv,mode = mode)
+
+  return(nTS)
+
+}
+
+
+
+
 
 #' Standardize keys in a TS
 #'
@@ -263,7 +328,9 @@ getConverter <- function(googId,howLong = 30){
 fixKiloyearsTs <- function(TS){
   vars <- pullTsVariable(TS,"paleoData_variableName")
   units <- pullTsVariable(TS,"paleoData_units")
-
+  if(class(units) == "try-error" | class(vars) == "try-error"){
+    return(TS)
+  }
   isAge <- which(vars=="age")
   if(length(isAge)>1){
     for(i in isAge){
@@ -280,6 +347,36 @@ fixKiloyearsTs <- function(TS){
 
 }
 
+#' Convert kiloyears in a chron TS object
+#'
+#' @param TS
+#'
+#' @return TS
+#' @export
+fixKiloyearsTsChron <- function(TS){
+  vars <- try(pullTsVariable(TS,"chronData_variableName"))
+  units <- try(pullTsVariable(TS,"chronData_units"))
+  if(class(units) == "try-error" | class(vars) == "try-error"){
+    return(TS)
+  }
+
+  isAge <- which(vars=="age")
+  if(length(isAge) >= 1){
+    for(i in isAge){
+      if(!is.na(units[i])){
+        if(stringr::str_detect(tolower(units[i]),"ky") | stringr::str_detect(tolower(units[i]),"ka")){
+          if(is.numeric(TS[[i]]$chronData_values)){
+          TS[[i]]$chronData_values <- TS[[i]]$chronData_values*1000
+          TS[[i]]$chronData_units <- "yr bp"
+          }
+          #print(paste("multiplied age column with units",units[i],"by 1000"))
+        }
+      }
+    }
+  }
+  return(TS)
+
+}
 
 
 #first remove all empty interpretations
@@ -361,10 +458,16 @@ return(tsi)
 #' @return L
 #' @export
 fixExcelIssues <- function(L){
-  ts <- extractTs(L)
+  ts <- lipdR::extractTs(L)
 
-  vn <- pullTsVariable(ts,"paleoData_variableName")
-  vno <- try(pullTsVariable(ts,"paleoData_variableNameOriginal"))
+  vn <- try(geoChronR::pullTsVariable(ts,"paleoData_variableName"))
+  if(class(vn)=="try-error"){
+    print("NO PALEODATA VARIABLENAMES!")
+    return(L)
+  }
+
+
+  vno <- try(geoChronR::pullTsVariable(ts,"paleoData_variableNameOriginal"))
   if(class(vno)=="try-error"){
     vno <- vn
   }
@@ -411,7 +514,7 @@ fixExcelIssues <- function(L){
     }
   }
 
-  newL <- collapseTs(ts)
+  newL <- lipdR::collapseTs(ts)
   return(newL)
 
 }

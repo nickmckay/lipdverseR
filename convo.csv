@@ -110,3 +110,8 @@ DK's(keep),paleoData_temp12kDkIndex,numeric
 seasonGeneral,climateInterpretation1_seasonalityGeneral,character
 last updated,paleoData_QCLastUpdated,character
 Remaining issues,paleoData_QCRemainingIssues,character
+proxyGeneral,paleoData_proxyGeneral,character
+neotomaSiteId,neotomaSiteId,character
+neotomaDatasetId,neotomaDatasetId,character
+seasonalityAlt,paleoData_seasonality,character
+otherAgesPerKyr,otherAgesPerKyr,character

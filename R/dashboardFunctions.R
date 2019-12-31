@@ -7,6 +7,7 @@
 #' @import stringr
 #' @import geoChronR
 #' @import dygraphs
+#' @importFrom purrr map_lgl
 #' @import magrittr
 #' @return a graph
 #' @export
@@ -118,7 +119,21 @@ plotCol <- function(thisTS,ind,timeCol = NA){
   # cts <- ts(data = bo$y,start = as.Date(getDate(min(bo$x))),deltat = 365.24)
   # #cts <- xts(data = bo$y,order.by = ym,frequency = 1,)
   #
-  dy.plot <- dygraph(df, main = thisTS[[ind]][[stringr::str_c(mode,"Data_variableName")]]) %>%
+  #plotName
+  colChar <- purrr::map_lgl(df,function(x){all(!is.numeric(x))})
+  if(any(colChar)){#then one or more columns are all characters
+    an <- which(colChar)
+    df[,an] <- NA
+  }
+
+
+  if(is.null(thisTS[[ind]][[stringr::str_c(mode,"Data_proxy")]])){
+plot.name <- thisTS[[ind]][[stringr::str_c(mode,"Data_variableName")]]
+  }else{
+    plot.name <- stringr::str_c(thisTS[[ind]][[stringr::str_c(mode,"Data_proxy")]]," - ",thisTS[[ind]][[stringr::str_c(mode,"Data_variableName")]])
+  }
+
+  dy.plot <- dygraph(df, main = plot.name) %>%
     dyAxis("x", drawGrid = FALSE, label = timeUnits) %>%
     dyAxis("y", label = names(df)[2]) %>%
     dyOptions(includeZero = FALSE,
@@ -442,11 +457,12 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
     str_c("\n")
 
   ##create csv output for download
-  lengths <- sapply(thisTS,function(x){length(x$paleoData_values)})
+  lengths <- sapply(thisTS,function(x){length(x$paleoData_values)})+1
   outdf <- data.frame(matrix(NA, nrow = max(lengths), ncol = length(lengths)))
 
   for(cc in 1:length(plotOrder)){#for each column..
-    outdf[1:lengths[plotOrder[cc]],cc] <- thisTS[[plotOrder[cc]]]$paleoData_values
+    outdf[1,cc] <- thisTS[[plotOrder[cc]]]$paleoData_TSid
+    outdf[2:lengths[plotOrder[cc]],cc] <- thisTS[[plotOrder[cc]]]$paleoData_values
     if(max(paleoNum) == 1  & max(tableNum) == 1){
       names(outdf)[cc] <-str_c(thisTS[[plotOrder[cc]]]$paleoData_variableName," (",thisTS[[plotOrder[cc]]]$paleoData_units,")")
     }else{
@@ -459,13 +475,17 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
 
 
 
-  if(!any(is.na(chronTS))){
+  if(!any(is.na(chronTS)) & length(chronTS)>0){
     ##create chron csv output for download
-    lengths <- sapply(chronTS,function(x){length(x$chronData_values)})
+    lengths <- sapply(chronTS,function(x){length(x$chronData_values)})+1
     outdfChron <- data.frame(matrix(NA, nrow = max(lengths), ncol = length(lengths)))
 
     for(cc in 1:length(plotOrderChron)){#for each column..
-      outdfChron[1:lengths[plotOrderChron[cc]],cc] <- chronTS[[plotOrderChron[cc]]]$chronData_values
+      if(is.null(chronTS[[plotOrderChron[cc]]]$chronData_TSid)){
+        chronTS[[plotOrderChron[cc]]]$chronData_TSid <- lipdR::createTSid()
+      }
+      outdfChron[1,cc] <- chronTS[[plotOrderChron[cc]]]$chronData_TSid
+      outdfChron[2:lengths[plotOrderChron[cc]],cc] <- chronTS[[plotOrderChron[cc]]]$chronData_values
       if(max(chronNum) == 1  & max(tableNum) == 1){
         names(outdfChron)[cc] <-str_c(chronTS[[plotOrderChron[cc]]]$chronData_variableName," (",chronTS[[plotOrderChron[cc]]]$chronData_units,")")
       }else{
