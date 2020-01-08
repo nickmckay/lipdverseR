@@ -133,7 +133,7 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 #' @import lipdR
 #' @import geoChronR
 #' @export
-updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE){
+updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE,ageOrYear = "age"){
   #
   # project <- "globalHolocene"
   # lipdDir <- "~/Dropbox/HoloceneLiPDLibrary/masterDatabase/"
@@ -158,7 +158,13 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   filesToUltimatelyDelete <- lipdR:::get_lipd_paths(lipdDir)
   D <- lipdR::readLipd(lipdDir)
 
+  #make sure that primary chronologies are named appropriately
+  D <- purrr::map(D,renamePrimaryChron)
+
+
   if(standardizeTerms){
+    D <- purrr::map(D,hasDepth)
+    D <- purrr::map(D,nUniqueAges)
     D <- purrr::map(D,nGoodAges)
     D <- purrr::map(D,nOtherAges)
     D <- purrr::map(D,fixExcelIssues)
@@ -234,12 +240,12 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   sTS <- lipdR::splitInterpretationByScope(TS)
 
   #2. Create a new qc sheet from files
-  qcC <- createQCdataFrame(sTS,templateId = qcId)
+  qcC <- createQCdataFrame(sTS,templateId = qcId,ageOrYear = ageOrYear)
   readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv"))
 
   #3. Get the updated QC sheet from google
   #first, lock editing
-  googledrive::drive_share(as_id(qcId),role = "reader", type = "anyone")
+  #googledrive::drive_share(as_id(qcId),role = "reader", type = "anyone")
 
 
 
@@ -309,7 +315,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   }
   TSF <- extractTs(DF)
   sTSF <- splitInterpretationByScope(TSF)
-  qcF <- createQCdataFrame(sTSF,templateId = qcId)
+  qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear)
 
 
   #7 Update QC sheet on google (and make a lastUpdate.csv file)

@@ -18,13 +18,14 @@ plotCol <- function(thisTS,ind,timeCol = NA){
     mode <- "paleo"
   }
 
-
+  yearUnits <- ageUnits <- NULL
   hasYear <- FALSE
   hasAge <- FALSE
   hasSeq <- FALSE
   if("year" %in% names(thisTS[[ind]])){
     hasYear <- TRUE
     year <- thisTS[[ind]]$year
+    yearUnits <- thisTS[[ind]]$yearUnits
   }
   if(hasYear){
     if(all(is.na(year))){
@@ -34,6 +35,7 @@ plotCol <- function(thisTS,ind,timeCol = NA){
   if("age" %in% names(thisTS[[ind]])){
     hasAge <- TRUE
     age <- thisTS[[ind]]$age
+    ageUnits <- thisTS[[ind]]$ageUnits
   }
   if(hasAge){
     if(all(is.na(age))){
@@ -46,6 +48,11 @@ plotCol <- function(thisTS,ind,timeCol = NA){
   }
   if(!hasYear & hasAge){#create an ageColumn
     year <- geoChronR::convertBP2AD(age)
+    if(!is.null(ageUnits)){
+      if(grepl(x = ageUnits,pattern = "k",ignore.case = TRUE)){#probably kyr
+        year <- geoChronR::convertBP2AD(age*1000)
+      }
+    }
     hasYear <- TRUE
   }
   if(!hasYear & !hasAge){#has no years or ages
@@ -77,9 +84,17 @@ plotCol <- function(thisTS,ind,timeCol = NA){
 
   #specify units
   if(timeCol == "age"){
+    if(is.null(ageUnits)){
     timeUnits <- "Year BP (1950)"
+    }else{
+      timeUnits <- ageUnits
+    }
   }else if(timeCol == "year") {
-    timeUnits <- "Year AD"
+    if(is.null(ageUnits)){
+      timeUnits <- "Year AD"
+    }else{
+      timeUnits <- yearUnits
+    }
   }else if(timeCol == "index") {
     timeUnits <- "(no age or year column, or theyre all NA!)"
   }

@@ -5,7 +5,7 @@
 \title{Create QC data.frame}
 \usage{
 createQCdataFrame(sTS, templateId, to.omit = c("depth", "age", "year"),
-  to.omit.specific = c("yr"))
+  to.omit.specific = c("yr"), ageOrYear = "age")
 }
 \value{
 a data.frame QC sheet

@@ -32,6 +32,35 @@ nUniqueAges <- function(L,maxAge = 12000,c14names = c("age")){
   return(L)
 }
 
+#' does the paleodata have depth?
+#'
+#' @param L
+#' @param dnames names to use to look for depth
+#'
+#' @return
+#' @export
+hasDepth <- function(L,dnames = c("depth")){
+  L$hasDepth <- 0
+  if(length(L$paleoData)>0){
+    for(c in 1:length(L$paleoData)){
+      for(m in 1:length(L$paleoData[[c]]$measurementTable)){
+        #find which depth column
+        wc <- which(dnames %in% tolower(names(L$paleoData[[c]]$measurementTable[[m]])))
+        if(length(wc)>0){
+          tc = min(wc)
+          av <- L$paleoData[[c]]$measurementTable[[m]][[dnames[tc]]]$values
+          if(sum(is.finite(av))>0){
+            L$hasDepth <- 1
+            return(L)
+          }
+        }
+      }
+
+    }
+  }
+  return(L)
+}
+
 #' Get the number of good 14C ages in a Lipd file
 #'
 #' @param L
@@ -79,7 +108,7 @@ nGoodAges <- function(L,maxAge = 12000,c14names = c("age")){
     allGood <- intersect(ind,goodi)
 
     nGoodAges <- length(allGood)
-    L$nUniqueAges <- nGoodAges
+    L$nUniqueGoodAges <- nGoodAges
     return(L)
 
   }else{
@@ -375,7 +404,7 @@ updateFromQC <- function(sTS,qcs){
 #' @import dplyr
 #' @import geoChronR
 #' @return a data.frame QC sheet
-createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),to.omit.specific = c("yr")){
+createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),to.omit.specific = c("yr"),ageOrYear = "age"){
   #setup reporting
   report <- c()
   noMatch <- c()
@@ -435,6 +464,8 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
     allAge <- vector(mode = "list",length = length(fsTS))
   }
 
+  if(ageOrYear=="age"){
+
   #convert years, calculate min/max years
   toRep <- which(sapply(allAge,length)==0 & sapply(allYear,length)>0)
 
@@ -485,11 +516,11 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   maxAge <- sapply(allAge,max,na.rm=TRUE)
 
   #ages per kyr
-  nUniqueAges <- try(pullTsVariable(fsTS,"nUniqueAges"))
-  if(!class(nUniqueAges)=="try-error"){
+  nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
+  if(!class(nUniqueGoodAges)=="try-error"){
     maxHoloAge <- maxAge
     maxHoloAge[maxAge>12000] <- 12000
-    agesPerKyr <- 1000*nUniqueAges/(maxHoloAge-minAge)
+    agesPerKyr <- 1000*nUniqueGoodAges/(maxHoloAge-minAge)
   }else{
     agesPerKyr <- matrix(NA,nrow = length(fsTS) )
   }
@@ -505,10 +536,40 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
     otherAgesPerKyr <- matrix(NA,nrow = length(fsTS) )
   }
 
+
   fsTS <- pushTsVariable(fsTS,"minYear",minAge,createNew = TRUE)
   fsTS <- pushTsVariable(fsTS,"maxYear",maxAge, createNew = TRUE)
   fsTS <- pushTsVariable(fsTS,"agesPerKyr",agesPerKyr,createNew = TRUE)
   fsTS <- pushTsVariable(fsTS,"otherAgesPerKyr",otherAgesPerKyr,createNew = TRUE)
+
+
+  }else if(ageOrYear=="year"){
+    #convert years, calculate min/max years
+    toRep <- which(sapply(allYear,length)==0 & sapply(allAge,length)>0)
+
+    for(t in toRep){
+      allYear[[t]] <- convertBP2AD(allAge[[t]])
+    }
+
+    #has ages
+    nUniqueAges <- try(pullTsVariable(fsTS,"nUniqueAges"))
+    if(class(nUniqueAges)=="try-error"){
+      nUniqueAges <- matrix(0,nrow = length(fsTS) )
+    }
+
+    hasChron <- as.numeric(nUniqueAges>0)
+    fsTS <- pushTsVariable(fsTS,"hasChron",hasChron,createNew = TRUE)
+
+    #has depth
+
+
+    minYear <- sapply(allYear,min,na.rm=TRUE)
+    maxYear <- sapply(allYear,max,na.rm=TRUE)
+    fsTS <- pushTsVariable(fsTS,"minYear",minYear,createNew = TRUE)
+    fsTS <- pushTsVariable(fsTS,"maxYear",maxYear, createNew = TRUE)
+  }else{
+    stop("ageOrYear must be 'age' or 'year'")
+  }
 
 
   #vectors to create

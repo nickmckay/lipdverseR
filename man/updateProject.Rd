@@ -6,7 +6,8 @@
 \usage{
 updateProject(project, lipdDir, webDirectory, qcId, lastUpdateId,
   versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
-  googEmail = NULL, updateWebpages = TRUE)
+  googEmail = NULL, updateWebpages = TRUE, standardizeTerms = TRUE,
+  ageOrYear = "age")
 }
 \arguments{
 \item{project}{project name}
