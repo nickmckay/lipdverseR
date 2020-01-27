@@ -38,10 +38,10 @@ if(!dir.exists(file.path(webDirectory,project))){
 # D <- readLipd(lipdDir)
 # TS <- extractTs(D)
 
+sTS <- lipdR::splitInterpretationByScope(TS)
 
-
-save(list = c("D","TS"),file = file.path(webDirectory,project,version,str_c(project,version,".RData")))
-save(list = c("D","TS"),file = file.path(webDirectory,"temp.RData"))
+save(list = c("D","TS","sTS"),file = file.path(webDirectory,project,version,str_c(project,version,".RData")))
+save(list = c("D","TS","sTS"),file = file.path(webDirectory,"temp.RData"))
 
 #remove columns we don't want to plot
 varNames <- sapply(TS, "[[","paleoData_variableName")

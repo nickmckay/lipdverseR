@@ -608,6 +608,9 @@ createProjectRmd <- function(webDirectory,project,version){
     str_c(str_c("[Download matlab serialization of all LiPD files for ", project,version,"](",project,version,".mat)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
+    str_c(str_c("[Download python (pickle) serialization of all LiPD files for ", project,version,"](",project,version,".pkl)"),sep = "\n") %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
     str_c("[Report an issue (include project name)](https://github.com/nickmckay/LiPDverse/issues)",sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%

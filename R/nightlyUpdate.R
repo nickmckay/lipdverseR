@@ -1,3 +1,20 @@
+#' Get google drive file update time
+#'
+#' @param googId Google drive file key
+#' @param tzone timezone
+#' @import googledrive lubridate
+#' @return
+#' @export
+#'
+#' @examples
+googleDriveUpdateTime <- function(googId,tzone = "UTC"){
+  #money sheet update
+  info <- googledrive::drive_get(googledrive::as_id(googId))
+  mtime <- info[3]$drive_resource[[1]]$modifiedTime
+  return(lubridate::with_tz(lubridate::ymd_hms(mtime),tzone = tzone))
+}
+
+
 #' Check to see if a project needs to be updated
 #'
 #' @param project
@@ -51,9 +68,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #   }
 
   #most recent QC update
-  info <- googledrive::drive_get(googledrive::as_id(qcId))
-  qcUpdate <- info[3]$drive_resource[[1]]$modifiedTime
-  qcUpdate <- lubridate::with_tz(lubridate::ymd_hms(qcUpdate),tzone = "UTC")
+  qcUpdate <- googleDriveUpdateTime(qcId)
 
   qcNeedsUpdating <- TRUE
   if(lastUpdate > qcUpdate){
@@ -284,11 +299,33 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   nTS <- combineInterpretationByScope(nsTS)
 
 
-  if(standardizeTerms){
-    #5b. Clean TS
-    nTS <- fix_pubYear(nTS)
-    nTS <- standardizeTsValues(nTS)
-    nTS <- purrr::map(nTS,removeEmptyInterpretationsFromTs)
+  if(standardizeTerms){#To do: #make this its own function
+    #proxy lumps
+    pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
+    TS <- geoChronR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
+
+    #inferred material
+    pl <- geoChronR::pullTsVariable(TS,"paleoData_inferredMaterial")
+    TS <- geoChronR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
+
+    #interpretation variable groups
+
+    pl <- geoChronR::pullTsVariable(TS,"interpretation1_variable")
+    TS <- geoChronR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
+
+    pl <- geoChronR::pullTsVariable(TS,"interpretation2_variable")
+    TS <- geoChronR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
+
+    pl <- geoChronR::pullTsVariable(TS,"interpretation3_variable")
+    TS <- geoChronR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
+
+
+
+    #Do some cleaning
+    TS <- standardizeTsValues(TS)
+    TS <- fix_pubYear(TS)
+    TS <- fixKiloyearsTs(TS)
+    TS <- purrr::map(TS,removeEmptyInterpretationsFromTs)
   }
 
   #5c rebuild database
@@ -310,6 +347,10 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
     #load back in files
     DF <- readLipd(file.path(webDirectory,project,projVersion))
+
+
+    createSerializations(D = DF,webDirectory,project,projVersion)
+
   }else{
     DF <- nD
   }
@@ -379,6 +420,64 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
 }
 
+#' create serializations of a database in R, matlab and python
+#'
+#' @param D
+#' @param matlabUtilitiesPath
+#' @param matlabPath
+#' @param webDirectory
+#' @param project
+#' @param projVersion
+#' @param python3Path
+#'
+#' @import stringr
+#' @import lipdR
+#' @import readr
+#' @description creates serialization; requires that Matlab and Python be installed, along with lipd utilities for those languages.
+#' @return
+#' @export
+createSerializations <- function(D,webDirectory,project,projVersion,matlabUtilitiesPath = "/Users/npm4/GitHub/LiPD-utilities/Matlab",matlabPath = "/Applications/MATLAB_R2015b.app/bin/matlab", python3Path="/Users/npm4/anaconda/bin/python3"){
+  #create serializations for web
+  #R
 
+  TS <- extractTs(D)
+  sTS <- splitInterpretationByScope(TS)
+  save(list = c("D","TS","sTS"),file = file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".RData")))
+
+
+  #matlab
+  mfile <- stringr::str_c("addpath(genpath('",matlabUtilitiesPath,"'));\n") %>%
+    stringr::str_c("D = readLiPD('",file.path(webDirectory,project,projVersion),"');\n") %>%
+    stringr::str_c("TS = extractTs(D);\n") %>%
+    stringr::str_c("sTS = splitInterpretationByScope(TS);\n") %>%
+    stringr::str_c("save ",file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".mat")),' D TS sTS\n') %>%
+    stringr::str_c("exit")
+
+  #write the file
+  readr::write_file(mfile,path = file.path(webDirectory,project,projVersion,"createSerialization.m"))
+
+  #run the file
+  system(stringr::str_c(matlabPath," -nodesktop -nosplash -nodisplay -r \"run('",file.path(webDirectory,project,projVersion,"createSerialization.m"),"')\""))
+
+
+  #Python
+  pyfile <- "import lipd\n" %>%
+    stringr::str_c("import pickle\n") %>%
+    stringr::str_c("D = lipd.readLipd('",file.path(webDirectory,project,projVersion),"/')\n") %>%
+    stringr::str_c("TS = lipd.extractTs(D)\n") %>%
+    stringr::str_c("filetosave = open('",file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".pkl'")),",'wb')\n") %>%
+    stringr::str_c("all_data = {}\n") %>%
+    stringr::str_c("all_data['D'] = D\n") %>%
+    stringr::str_c("all_data['TS']  = TS\n") %>%
+    stringr::str_c("pickle.dump(all_data, filetosave,protocol = 2)\n") %>%
+    stringr::str_c("filetosave.close()")
+
+  #write the file
+  readr::write_file(pyfile,path = file.path(webDirectory,project,projVersion,"createSerialization.py"))
+
+  #run the file
+  system(str_c(python3Path, " ",file.path(webDirectory,project,projVersion,"createSerialization.py")))
+
+}
 
 
