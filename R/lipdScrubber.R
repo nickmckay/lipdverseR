@@ -37,8 +37,8 @@ fix_pubYear <- function(TS){
   y <- stringr::str_replace(py,"_pubYear","_year")
 
   for(i in 1:length(py)){
-    pubYear <- geoChronR::pullTsVariable(TS,py[i])
-    year <- try(geoChronR::pullTsVariable(TS,y[i]))
+    pubYear <- lipdR::pullTsVariable(TS,py[i])
+    year <- try(lipdR::pullTsVariable(TS,y[i]))
     if(class(year) == "try-error"){
       year <- matrix(data = NA,nrow = length(pubYear),ncol = 1)
     }
@@ -53,7 +53,7 @@ fix_pubYear <- function(TS){
     year <- as.numeric(year)
 
     #push back to TS
-    nts <- geoChronR::pushTsVariable(TS = nts,variable = y[i],vec = year,createNew = TRUE)
+    nts <- lipdR::pushTsVariable(TS = nts,variable = y[i],vec = year,createNew = TRUE)
 
     nts <- removeVariable(nts,variable = py[i])
 
@@ -140,6 +140,27 @@ getVals <- function(key,conv){
   return(out)
 }
 
+#' remove artificial conflicts after merging
+#'
+#' @param string a string
+#' @import stringr
+#' @return a string with artificial conflicts removed
+#' @export
+#'
+#' @examples
+removeFakeConflicts <- function(string){
+  up <- string #by default return this
+  sout <- str_match(string, "[)))] (.*) /// (.*)")
+  if(is.character(string)){
+    if(!all(is.na(sout))){
+      if(sout[2] == sout[3]){
+        up <- sout[2]
+      }
+    }
+  }
+  return(up)
+}
+
 #' standardize variableNames in a file
 #'
 #' @param L
@@ -173,7 +194,7 @@ standardizeValues <- function(TS,tsKey,googId){
   conv <- getConverter(googId,howLong = 30)
   #check for duplicates? not yet
 
-  key <- geoChronR::pullTsVariable(TS,tsKey)
+  key <- lipdR::pullTsVariable(TS,tsKey)
   newKeys <- purrr::map_chr(key,getVals,conv)
 
   #find differences
@@ -183,7 +204,7 @@ standardizeValues <- function(TS,tsKey,googId){
   allNames <- unique(unlist(sapply(TS,names)))
   oName <- paste0(tsKey,"Original")
   if(oName %in% allNames){#it already exists
-    oldKey <- geoChronR::pullTsVariable(TS,oName)
+    oldKey <- lipdR::pullTsVariable(TS,oName)
     createNew = FALSE
   }else{
     oldKey <- matrix(NA,nrow = length(TS))
@@ -192,8 +213,8 @@ standardizeValues <- function(TS,tsKey,googId){
   oldKey[diffKeys] <- key[diffKeys]
 
   #push variables back
-    TS <- geoChronR::pushTsVariable(TS,tsKey,newKeys)
-    TS <- geoChronR::pushTsVariable(TS,oName,oldKey,createNew = createNew)
+    TS <- lipdR::pushTsVariable(TS,tsKey,newKeys)
+    TS <- lipdR::pushTsVariable(TS,oName,oldKey,createNew = createNew)
   return(TS)
 
 }
@@ -460,14 +481,14 @@ return(tsi)
 fixExcelIssues <- function(L){
   ts <- lipdR::extractTs(L)
 
-  vn <- try(geoChronR::pullTsVariable(ts,"paleoData_variableName"))
+  vn <- try(lipdR::pullTsVariable(ts,"paleoData_variableName"))
   if(class(vn)=="try-error"){
     print("NO PALEODATA VARIABLENAMES!")
     return(L)
   }
 
 
-  vno <- try(geoChronR::pullTsVariable(ts,"paleoData_variableNameOriginal"))
+  vno <- try(lipdR::pullTsVariable(ts,"paleoData_variableNameOriginal"))
   if(class(vno)=="try-error"){
     vno <- vn
   }

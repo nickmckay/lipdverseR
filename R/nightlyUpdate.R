@@ -198,23 +198,23 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   #TO DO!# remove entries that don't fall into the groups/lumps!
   if(standardizeTerms){
     #proxy lumps
-    pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
-    TS <- geoChronR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"paleoData_proxy")
+    TS <- lipdR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
 
     #inferred material
-    pl <- geoChronR::pullTsVariable(TS,"paleoData_inferredMaterial")
-    TS <- geoChronR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"paleoData_inferredMaterial")
+    TS <- lipdR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
 
     #interpretation variable groups
 
-    pl <- geoChronR::pullTsVariable(TS,"interpretation1_variable")
-    TS <- geoChronR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"interpretation1_variable")
+    TS <- lipdR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
 
-    pl <- geoChronR::pullTsVariable(TS,"interpretation2_variable")
-    TS <- geoChronR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"interpretation2_variable")
+    TS <- lipdR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
 
-    pl <- geoChronR::pullTsVariable(TS,"interpretation3_variable")
-    TS <- geoChronR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"interpretation3_variable")
+    TS <- lipdR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
 
 
 
@@ -226,8 +226,8 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   }
 
   #get some relevant information
-  TSid <- geoChronR::pullTsVariable(TS,"paleoData_TSid")
-  udsn <- unique(geoChronR::pullTsVariable(TS,"dataSetName"))
+  TSid <- lipdR::pullTsVariable(TS,"paleoData_TSid")
+  udsn <- unique(lipdR::pullTsVariable(TS,"dataSetName"))
 
   #1b. New version name
   projVersion <- tickVersion(project,udsn,googEmail = googEmail)
@@ -247,7 +247,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   if(length(et) > 0){
     ntsid <- purrr::map_chr(et,lipdR::createTSid)
     TSid[et] <- ntsid
-    TS <- geoChronR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
+    TS <- lipdR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
   }
 
 
@@ -289,6 +289,9 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
   daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
 
+  #remove fake conflicts
+  qc <- as.data.frame(apply(qc,c(1,2),removeFakeConflicts))
+
 
   #remove duplicate rows
   qc <- dplyr::distinct(qc)
@@ -301,23 +304,23 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   if(standardizeTerms){#To do: #make this its own function
     #proxy lumps
-    pl <- geoChronR::pullTsVariable(TS,"paleoData_proxy")
-    TS <- geoChronR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"paleoData_proxy")
+    TS <- lipdR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
 
     #inferred material
-    pl <- geoChronR::pullTsVariable(TS,"paleoData_inferredMaterial")
-    TS <- geoChronR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"paleoData_inferredMaterial")
+    TS <- lipdR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
 
     #interpretation variable groups
 
-    pl <- geoChronR::pullTsVariable(TS,"interpretation1_variable")
-    TS <- geoChronR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"interpretation1_variable")
+    TS <- lipdR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
 
-    pl <- geoChronR::pullTsVariable(TS,"interpretation2_variable")
-    TS <- geoChronR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"interpretation2_variable")
+    TS <- lipdR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
 
-    pl <- geoChronR::pullTsVariable(TS,"interpretation3_variable")
-    TS <- geoChronR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
+    pl <- lipdR::pullTsVariable(TS,"interpretation3_variable")
+    TS <- lipdR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
 
 
 
@@ -394,7 +397,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   newRow$publication <- pdm[1]
   newRow$dataset <- pdm[2]
   newRow$metadata <- pdm[3]
-  newRow$dsns <- paste(unique(geoChronR::pullTsVariable(TSF,"dataSetName")),collapse = "|")
+  newRow$dsns <- paste(unique(lipdR::pullTsVariable(TSF,"dataSetName")),collapse = "|")
   newRow$versionCreated <- lubridate::now(tzone = "UTC")
   newRow$`zip MD5` <- directoryMD5(lipdDir)
 

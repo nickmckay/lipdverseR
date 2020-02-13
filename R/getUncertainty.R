@@ -9,7 +9,7 @@
 meanUncertainty <- function(L,minError = 0.1,maxError = 6){
   tts <- lipdR::extractTs(L)
   otts <- tts
-  proxy <- try(geoChronR::pullTsVariable(tts,"paleoData_proxy"))
+  proxy <- try(lipdR::pullTsVariable(tts,"paleoData_proxy"))
   if(class(proxy) == "try-error"){
     proxy <- matrix(NA,nrow = length(tts))
   }
@@ -24,7 +24,7 @@ meanUncertainty <- function(L,minError = 0.1,maxError = 6){
     if(length(up)>1){
       tts <- filterTs(otts,stringr::str_c("paleoData_proxy == ",up[i]))
     }
-    vn <- geoChronR::pullTsVariable(tts,"paleoData_variableName")
+    vn <- lipdR::pullTsVariable(tts,"paleoData_variableName")
 
 
     uvn <- which(grepl("uncertainty",vn))

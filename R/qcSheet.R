@@ -77,7 +77,7 @@ nGoodAges <- function(L,maxAge = 12000,c14names = c("age")){
     cts <- fixKiloyearsTsChron(cts)
 
 
-    vn <- geoChronR::pullTsVariable(cts,"chronData_variableName")
+    vn <- lipdR::pullTsVariable(cts,"chronData_variableName")
     ati <- which(vn == "age_type")
     if(length(ati)==0){
       out <- "no age_type column"
@@ -129,7 +129,7 @@ nOtherAges <- function(L,maxAge = 12000,c14names = c("age")){
   cts <- lipdR::extractTs(L,mode = "chron")
 
   if(length(cts)>0){#then there's a chron
-    vn <- geoChronR::pullTsVariable(cts,"chronData_variableName")
+    vn <- lipdR::pullTsVariable(cts,"chronData_variableName")
     ati <- which(vn == "age_type")
     if(length(ati)==0){
       out <- "no age_type column"
@@ -189,6 +189,8 @@ flattenAuthors <- function(vec){
       }
 
     }
+  }else if(class(vec)=="character"){
+    nvec <- vec
   }
   return(nvec)
 }
@@ -235,6 +237,7 @@ getGoogleQCSheet <- function(qcSheetId){
 #' @import geoChronR
 #' @return an updated sTS
 #'
+
 updateFromQC <- function(sTS,qcs){
 
   #setup reporting
@@ -267,8 +270,8 @@ updateFromQC <- function(sTS,qcs){
   }
 
   #see if any qcsheet TSids are missing from the database
-  TSid <- geoChronR::pullTsVariable(sTS,"paleoData_TSid")
-  dsn <- geoChronR::pullTsVariable(sTS,"dataSetName")
+  TSid <- lipdR::pullTsVariable(sTS,"paleoData_TSid")
+  dsn <- lipdR::pullTsVariable(sTS,"dataSetName")
   missingTSid <- c()
   missingTSidDsn <- c()
 
@@ -303,8 +306,6 @@ updateFromQC <- function(sTS,qcs){
 
 
   for(thisTSid in TSidList){
-
-    # thisTSid <- sTS[[i]]$paleoData_TSid
     i = which(TSid == thisTSid)
     if(length(i)>1){
       report = rbind(report,stringr::str_c("Too many matches for TSid: ",thisTSid ," for variableName: ",sTS[[i[1]]]$paleoData_variableName ," in dataset:",sTS[[i[1]]]$dataSetName) )
@@ -325,11 +326,10 @@ updateFromQC <- function(sTS,qcs){
         report = rbind(report,stringr::str_c("Too many matches for TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName) )
       }else{#loop through variables and force an update
         thisTSnames <- unique(c(names(sTS[[i]]),allNamesConvo)) #find names for this ts, combine with convo names for updates
+
         for(j in 1:length(thisTSnames)){
           rn <- which(tsNames %in% thisTSnames[j])
           # #ignore TS names without matches
-
-          #find matches
           if(length(rn) == 1){
             #check type
             varType <- convo$type[which(convo$tsName %in% thisTSnames[j])]
@@ -466,81 +466,81 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
 
   if(ageOrYear=="age"){
 
-  #convert years, calculate min/max years
-  toRep <- which(sapply(allAge,length)==0 & sapply(allYear,length)>0)
+    #convert years, calculate min/max years
+    toRep <- which(sapply(allAge,length)==0 & sapply(allYear,length)>0)
 
-  for(t in toRep){
-    allAge[[t]] <- convertAD2BP(allYear[[t]])
-  }
-
-  #climate12k specific
-
-  #mean value
-  getMean12k <- function(tsi){
-    gi <- which(tsi$age<12000)
-    return(mean(tsi$paleoData_values[gi],na.rm = TRUE))
-  }
-
-  getRes12k <- function(tsi){
-    gi <- which(tsi$age<12000 & is.numeric(tsi$age) & !is.na(tsi$paleoData_values))
-    if(length(gi)>=1){
-      out <- median(abs(diff(sort(tsi$age[gi]))),na.rm = TRUE)
-    }else{
-      out <- NA
+    for(t in toRep){
+      allAge[[t]] <- convertAD2BP(allYear[[t]])
     }
-    return(out)
-  }
 
-  meanValue <- purrr::map_dbl(fsTS,getMean12k)
-  medianRes <- purrr::map_dbl(fsTS,getRes12k)
+    #climate12k specific
 
-  fsTS <- pushTsVariable(fsTS,"paleoData_meanValue12k",vec = meanValue,createNew = TRUE)
-  fsTS <- pushTsVariable(fsTS,"paleoData_medianRes12k",vec = medianRes,createNew = TRUE)
+    #mean value
+    getMean12k <- function(tsi){
+      gi <- which(tsi$age<12000)
+      return(mean(tsi$paleoData_values[gi],na.rm = TRUE))
+    }
 
+    getRes12k <- function(tsi){
+      gi <- which(tsi$age<12000 & is.numeric(tsi$age) & !is.na(tsi$paleoData_values))
+      if(length(gi)>=1){
+        out <- median(abs(diff(sort(tsi$age[gi]))),na.rm = TRUE)
+      }else{
+        out <- NA
+      }
+      return(out)
+    }
 
-  #is annual
-  annOpts <- c("1 2 3 4 5 6 7 8 9 10 11 12","ANN")
-  ci1s <- try(pullTsVariable(fsTS,"climateInterpretation1_seasonality"))
-  if(!class(ci1s)=="try-error"){
-    ina <- which(is.na(ci1s))
-    nci1s <- matrix(FALSE,nrow = length(ci1s) )
-    nci1s[ina] <- NA
-    isAnn <- which(ci1s %in% annOpts)
-    nci1s[isAnn] <- TRUE
-  }else{
-    nci1s <- matrix(NA,nrow = length(fsTS) )
-  }
-  fsTS <- pushTsVariable(fsTS,"climateInterpretation1_isAnnual",nci1s,createNew = TRUE)
+    meanValue <- purrr::map_dbl(fsTS,getMean12k)
+    medianRes <- purrr::map_dbl(fsTS,getRes12k)
 
-  minAge <- sapply(allAge,min,na.rm=TRUE)
-  maxAge <- sapply(allAge,max,na.rm=TRUE)
-
-  #ages per kyr
-  nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
-  if(!class(nUniqueGoodAges)=="try-error"){
-    maxHoloAge <- maxAge
-    maxHoloAge[maxAge>12000] <- 12000
-    agesPerKyr <- 1000*nUniqueGoodAges/(maxHoloAge-minAge)
-  }else{
-    agesPerKyr <- matrix(NA,nrow = length(fsTS) )
-  }
-
-  #other ages per kyr
-
-  nUniqueOtherAges <- try(pullTsVariable(fsTS,"nUniqueOtherAges"))
-  if(!class(nUniqueOtherAges)=="try-error"){
-    maxHoloAge <- maxAge
-    maxHoloAge[maxAge>12000] <- 12000
-    otherAgesPerKyr <- 1000*nUniqueOtherAges/(maxHoloAge-minAge)
-  }else{
-    otherAgesPerKyr <- matrix(NA,nrow = length(fsTS) )
-  }
+    fsTS <- pushTsVariable(fsTS,"paleoData_meanValue12k",vec = meanValue,createNew = TRUE)
+    fsTS <- pushTsVariable(fsTS,"paleoData_medianRes12k",vec = medianRes,createNew = TRUE)
 
 
-  fsTS <- pushTsVariable(fsTS,"minYear",minAge,createNew = TRUE)
-  fsTS <- pushTsVariable(fsTS,"maxYear",maxAge, createNew = TRUE)
-  fsTS <- pushTsVariable(fsTS,"agesPerKyr",agesPerKyr,createNew = TRUE)
-  fsTS <- pushTsVariable(fsTS,"otherAgesPerKyr",otherAgesPerKyr,createNew = TRUE)
+    #is annual
+    annOpts <- c("1 2 3 4 5 6 7 8 9 10 11 12","ANN")
+    ci1s <- try(pullTsVariable(fsTS,"climateInterpretation1_seasonality"))
+    if(!class(ci1s)=="try-error"){
+      ina <- which(is.na(ci1s))
+      nci1s <- matrix(FALSE,nrow = length(ci1s) )
+      nci1s[ina] <- NA
+      isAnn <- which(ci1s %in% annOpts)
+      nci1s[isAnn] <- TRUE
+    }else{
+      nci1s <- matrix(NA,nrow = length(fsTS) )
+    }
+    fsTS <- pushTsVariable(fsTS,"climateInterpretation1_isAnnual",nci1s,createNew = TRUE)
+
+    minAge <- sapply(allAge,min,na.rm=TRUE)
+    maxAge <- sapply(allAge,max,na.rm=TRUE)
+
+    #ages per kyr
+    nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
+    if(!class(nUniqueGoodAges)=="try-error"){
+      maxHoloAge <- maxAge
+      maxHoloAge[maxAge>12000] <- 12000
+      agesPerKyr <- 1000*nUniqueGoodAges/(maxHoloAge-minAge)
+    }else{
+      agesPerKyr <- matrix(NA,nrow = length(fsTS) )
+    }
+
+    #other ages per kyr
+
+    nUniqueOtherAges <- try(pullTsVariable(fsTS,"nUniqueOtherAges"))
+    if(!class(nUniqueOtherAges)=="try-error"){
+      maxHoloAge <- maxAge
+      maxHoloAge[maxAge>12000] <- 12000
+      otherAgesPerKyr <- 1000*nUniqueOtherAges/(maxHoloAge-minAge)
+    }else{
+      otherAgesPerKyr <- matrix(NA,nrow = length(fsTS) )
+    }
+
+
+    fsTS <- pushTsVariable(fsTS,"minYear",minAge,createNew = TRUE)
+    fsTS <- pushTsVariable(fsTS,"maxYear",maxAge, createNew = TRUE)
+    fsTS <- pushTsVariable(fsTS,"agesPerKyr",agesPerKyr,createNew = TRUE)
+    fsTS <- pushTsVariable(fsTS,"otherAgesPerKyr",otherAgesPerKyr,createNew = TRUE)
 
 
   }else if(ageOrYear=="year"){

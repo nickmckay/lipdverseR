@@ -7,7 +7,7 @@
 #   ts <- extractTs(L)
 #   sts <- splitInterpretationByScope(ts)
 #
-#   sg <- try(geoChronR::pullTsVariable(sts,"climateInterpretation1_seasonalityGeneral"),silent = TRUE)
+#   sg <- try(lipdR::pullTsVariable(sts,"climateInterpretation1_seasonalityGeneral"),silent = TRUE)
 #   if(class(sg)=="try-error"){
 #     next
 #   }
@@ -37,7 +37,7 @@ if(length(tc) <= 1){
   stop("Not enough timeseries to composite")
 }
 
-vn <- geoChronR::pullTsVariable(ts,"paleoData_variableName")
+vn <- lipdR::pullTsVariable(ts,"paleoData_variableName")
 if(any(grepl("Composite",vn))){
   hc <- which(grepl("Composite",vn))
   for(h in hc){
@@ -89,7 +89,7 @@ toignore <- c("paleoData_TSid","paleoData_hasMaxValue","paleoData_hasMinValue","
 ci <- ts[[tc[1]]]
 for(i in 1:length(ci)){
   if(length(ci[[i]])==1 & !names(ci)[i] %in% toignore){#only look at single instance things
-  vars <- geoChronR::pullTsVariable(ts[tc],names(ci)[i])
+  vars <- lipdR::pullTsVariable(ts[tc],names(ci)[i])
   vars <- vars[which(!is.na(vars))]
 
   uvars <- unique(vars)
