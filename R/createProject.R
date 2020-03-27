@@ -121,12 +121,12 @@ zip(zipfile = file.path(webDirectory,project,version,str_c(project,version,".zip
 #write out failed somewhere
 write.table(x = failed,file = file.path(webDirectory,project,version,"failedLipdversePage.txt"),col.names = FALSE,row.names = FALSE )
 
-#if current version, copy into current_version folder
-if(currentVersion){
-  unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
-  dir.create(file.path(webDirectory,project,"current_version"))
-  file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version"), recursive=TRUE,overwrite = TRUE)
-}
+# #if current version, copy into current_version folder
+# if(currentVersion){
+#   unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
+#   dir.create(file.path(webDirectory,project,"current_version"))
+#   file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version"), recursive=TRUE,overwrite = TRUE)
+# }
 
 
 

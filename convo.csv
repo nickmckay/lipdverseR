@@ -1,5 +1,6 @@
 qcSheetName,tsName,type
 archiveType,archiveType,character
+inThisCompilation,inCompilationBeta,special
 calibration_method,calibration_method,character
 basis,climateInterpretation1_basis,character
 direction,climateInterpretation1_direction,character
@@ -96,6 +97,9 @@ pub1_doi,pub1_doi,character
 pub1_journal,pub1_journal,character
 pub1_title,pub1_title,character
 pub1_year,pub1_year,numeric
+pub1_pages,pub1_pages,character
+pub1_issue,pub1_issue,character
+pub1_volume,pub1_volume,character
 pub2_authors,pub2_author,author
 pub2_citation,pub2_citation,character
 pub2_citeKey,pub2_citeKey,character
@@ -109,7 +113,7 @@ medianHoloceneResolution,paleoData_medianRes12k,numeric
 proxyDetail,paleoData_proxyDetail,character
 datum,paleoData_datum,character
 agesPerKyr,agesPerKyr,numeric
-countryOcean,geo_countryOcean,character
+countryOcean,geo_gcmdLocation,character
 DK's(keep),paleoData_temp12kDkIndex,numeric
 seasonGeneral,climateInterpretation1_seasonalityGeneral,character
 last updated,paleoData_QCLastUpdated,character

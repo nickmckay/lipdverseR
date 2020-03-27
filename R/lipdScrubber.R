@@ -1,3 +1,78 @@
+#' Create vectors for lumping
+#'
+#' @param TS TS object
+#' @param groupFrom name of TS variable to group
+#' @param groupInto name of group to put into TS
+#'
+#' @return updated TS object
+#' @export
+#'
+#' @examples
+createVectorsForGroups <- function(TS,groupFrom,groupInto){
+  if(length(groupFrom) != length(groupInto)){
+    stop("groupFrom and groupInto must be the same length")
+  }
+
+  allNames <- unique(unlist(sapply(TS,names)))#get all names in TS
+
+  for(g in 1:length(groupFrom)){
+    if(groupFrom[g] %in% allNames){
+      pl <- lipdR::pullTsVariable(TS,groupFrom[g])
+      TS <- lipdR::pushTsVariable(TS,groupInto[g],pl,createNew = TRUE)
+    }
+  }
+
+
+  return(TS)
+}
+
+#' figure out  interpretation group directions
+#'
+#' @param vec
+#' @import googlesheets4
+#' @return
+#' @export
+#'
+#' @examples
+getInterpretationGroupDirections <- function(vec){
+  cs <- googlesheets4::sheets_read("1Y7ySazKZSil_NmZPI5TEE2MVQWK4wlb_6VxlAtxeSUo",sheet = 2)
+  gd <- matrix(NA,nrow = length(vec))
+  for(n in 1:ncol(cs)){
+    tc <- which(vec == names(cs)[n])
+    gd[tc,1] <- cs[1,n]
+    gd <- as.matrix(gd)
+  }
+  return(gd)
+
+}
+
+#' create directions for groups
+#'
+#' @param TS
+#' @param groupFrom
+#' @param groupInto
+#'
+#' @return
+#' @export
+#'
+#' @examples
+createInterpretationGroupDirections <- function(TS,groupFrom,groupInto){
+  if(length(groupFrom) != length(groupInto)){
+    stop("groupFrom and groupInto must be the same length")
+  }
+  allNames <- unique(unlist(sapply(TS,names)))#get all names in TS
+  for(g in 1:length(groupFrom)){
+    if(groupFrom[g] %in% allNames){
+      igd <- getInterpretationGroupDirections(lipdR::pullTsVariable(TS,groupFrom[g]))
+      TS <- lipdR::pushTsVariable(TS,groupInto[g],igd,createNew = TRUE)
+    }
+  }
+  return(TS)
+}
+
+
+
+
 
 #' remove all instances of a variable from a TS
 #'
@@ -139,6 +214,21 @@ getVals <- function(key,conv){
   }
   return(out)
 }
+
+
+#' remove artificial conflicts for a column
+#'
+#' @param col
+#'
+#' @return col
+#' @export
+removeFakeConflictsCol <- function(col){
+  if(is.character(col)){
+  col <- purrr::map_chr(col,removeFakeConflicts)
+  }
+  return(col)
+}
+
 
 #' remove artificial conflicts after merging
 #'
@@ -381,7 +471,7 @@ fixKiloyearsTsChron <- function(TS){
     return(TS)
   }
 
-  isAge <- which(vars=="age")
+  isAge <- which(grepl("age",vars))
   if(length(isAge) >= 1){
     for(i in isAge){
       if(!is.na(units[i])){
@@ -437,6 +527,9 @@ ai <- names(tsi)[which(str_detect(names(tsi),"interpretation"))]
 
 #get the scopes
 as <- ai[which(str_detect(ai,"scope"))]
+if(length(as)==0){#try variable
+  as <- ai[which(str_detect(ai,"variable"))]
+}
 
 for(i in 1:length(as)){
   tn <- str_extract(as[i],"[0-9]")

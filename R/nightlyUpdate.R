@@ -161,6 +161,8 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   #authorize google
   googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
+  googledrive::drive_auth(email = googEmail,cache = TRUE)
+
   #check if update is necessary
   toUpdate <- updateNeeded(project,webDirectory,lipdDir,qcId,googEmail = googEmail)
 
@@ -197,27 +199,6 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   #TO DO!# remove entries that don't fall into the groups/lumps!
   if(standardizeTerms){
-    #proxy lumps
-    pl <- lipdR::pullTsVariable(TS,"paleoData_proxy")
-    TS <- lipdR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
-
-    #inferred material
-    pl <- lipdR::pullTsVariable(TS,"paleoData_inferredMaterial")
-    TS <- lipdR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
-
-    #interpretation variable groups
-
-    pl <- lipdR::pullTsVariable(TS,"interpretation1_variable")
-    TS <- lipdR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
-
-    pl <- lipdR::pullTsVariable(TS,"interpretation2_variable")
-    TS <- lipdR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
-
-    pl <- lipdR::pullTsVariable(TS,"interpretation3_variable")
-    TS <- lipdR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
-
-
-
     #Do some cleaning
     TS <- standardizeTsValues(TS)
     TS <- fix_pubYear(TS)
@@ -280,55 +261,75 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
   qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"),guess_max = Inf) %>%
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
-  qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
+
+
+  #qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC) Old way
+    #NPM: 2.20.20 added to help merge_data work as desired
+
+  #shuffle in
+  dBC <- dplyr::anti_join(qcB,qcC,by = "TSid")
+  dCB <- dplyr::anti_join(qcC,qcB,by = "TSid")
+  dCA <- dplyr::anti_join(qcC,qcA,by = "TSid")
+
+  qcA2 <- dplyr::bind_rows(qcA,dCA)
+  qcB2 <- dplyr::bind_rows(qcB,dCB)
+  qcC2 <- dplyr::bind_rows(qcC,dBC)
+
+  #check once more
+  dBA <- dplyr::anti_join(qcB,qcA2,by = "TSid")
+  qcA2 <- dplyr::bind_rows(qcA2,dBA)
+
+
+  #arrange by qcB TSid
+  miA <- match(qcB2$TSid,qcA2$TSid)
+  miC <- match(qcB2$TSid,qcC2$TSid)
+
+  qcA <- qcA2[miA,]
+
+  qcC <- qcC2[miC,]
+  qcB <- qcB2
+
+  qc <- daff::merge_data(qcA2,qcB2,qcC2)
 
   #this should fix conflicts that shouldnt exist
   #qc <- resolveDumbConflicts(qc)
 
-  #find differences for log
-  diff <- daff::diff_data(qcA,qc,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
-  daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
+
 
   #remove fake conflicts
-  qc <- as.data.frame(apply(qc,c(1,2),removeFakeConflicts))
-
+  qc <- purrr::map_dfc(qc,removeFakeConflictsCol)
 
   #remove duplicate rows
   qc <- dplyr::distinct(qc)
 
 
   #5. Update sTS from merged qc
-  nsTS <- updateFromQC(sTS,qc)
+  nsTS <- updateFromQC(sTS,qc,project,projVersion)
   nTS <- combineInterpretationByScope(nsTS)
 
 
   if(standardizeTerms){#To do: #make this its own function
     #proxy lumps
-    pl <- lipdR::pullTsVariable(TS,"paleoData_proxy")
-    TS <- lipdR::pushTsVariable(TS,"paleoData_proxyLumps",pl,createNew = TRUE)
+    groupFrom <- c("paleoData_proxy","paleoData_inferredMaterial","interpretation1_variable","interpretation2_variable","interpretation3_variable","interpretation4_variable","interpretation5_variable","interpretation6_variable","interpretation7_variable","interpretation8_variable")
 
-    #inferred material
-    pl <- lipdR::pullTsVariable(TS,"paleoData_inferredMaterial")
-    TS <- lipdR::pushTsVariable(TS,"paleoData_inferredMaterialGroup",pl,createNew = TRUE)
+    groupInto <- c("paleoData_proxyLumps","paleoData_inferredMaterialGroup","interpretation1_variableGroup","interpretation2_variableGroup","interpretation3_variableGroup","interpretation4_variableGroup","interpretation5_variableGroup","interpretation6_variableGroup","interpretation7_variableGroup","interpretation8_variableGroup")
 
-    #interpretation variable groups
-
-    pl <- lipdR::pullTsVariable(TS,"interpretation1_variable")
-    TS <- lipdR::pushTsVariable(TS,"interpretation1_variableGroup",pl,createNew = TRUE)
-
-    pl <- lipdR::pullTsVariable(TS,"interpretation2_variable")
-    TS <- lipdR::pushTsVariable(TS,"interpretation2_variableGroup",pl,createNew = TRUE)
-
-    pl <- lipdR::pullTsVariable(TS,"interpretation3_variable")
-    TS <- lipdR::pushTsVariable(TS,"interpretation3_variableGroup",pl,createNew = TRUE)
-
-
+    #create new vectors for grouping variables.
+    nTS <- createVectorsForGroups(nTS,groupFrom,groupInto)
 
     #Do some cleaning
-    TS <- standardizeTsValues(TS)
-    TS <- fix_pubYear(TS)
-    TS <- fixKiloyearsTs(TS)
-    TS <- purrr::map(TS,removeEmptyInterpretationsFromTs)
+    nTS <- standardizeTsValues(nTS)
+
+
+
+    #add directions to isotope groups
+    igf <- c("interpretation1_variableGroup","interpretation2_variableGroup","interpretation3_variableGroup","interpretation4_variableGroup","interpretation5_variableGroup","interpretation6_variableGroup","interpretation7_variableGroup","interpretation8_variableGroup")
+    igt <- c("interpretation1_variableGroupDirection","interpretation2_variableGroupDirection","interpretation3_variableGroupDirection","interpretation4_variableGroupDirection","interpretation5_variableGroupDirection","interpretation6_variableGroupDirection","interpretation7_variableGroupDirection","interpretation8_variableGroupDirection")
+    nTS <- createInterpretationGroupDirections(nTS,igf,igt)
+
+    nTS <- fix_pubYear(nTS)
+    nTS <- fixKiloyearsTs(nTS)
+    nTS <- purrr::map(nTS,removeEmptyInterpretationsFromTs)
   }
 
   #5c rebuild database
@@ -354,12 +355,16 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
     createSerializations(D = DF,webDirectory,project,projVersion)
 
+    unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
+    dir.create(file.path(webDirectory,project,"current_version"))
+    file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version"), recursive=TRUE,overwrite = TRUE)
+
   }else{
     DF <- nD
   }
   TSF <- extractTs(DF)
   sTSF <- splitInterpretationByScope(TSF)
-  qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear)
+  qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear,project,projVersion)
 
 
   #7 Update QC sheet on google (and make a lastUpdate.csv file)
@@ -369,10 +374,13 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   readr::write_csv(qc2w,path = file.path(webDirectory,project,"newLastUpdate.csv"))
 
+  #find differences for log
+  diff <- daff::diff_data(qcA,qc2w,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
+  daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
+
   googledrive::drive_update(file = googledrive::as_id(lastUpdateId),media = file.path(webDirectory,project,"newLastUpdate.csv"))
   newName <- str_c(project," v.",projVersion," QC sheet")
 
-  newName <- str_c(project," v.",projVersion," QC sheet")
 
   googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"newLastUpdate.csv"),name = newName)
   googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
