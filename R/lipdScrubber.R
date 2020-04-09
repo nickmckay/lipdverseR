@@ -1,3 +1,59 @@
+#' Remove empty tables
+#'
+#' @param L a Lipd file
+#' @param pc paleo or chron tables? (default= "all)
+#'
+#' @return a list of data.frames
+#' @export
+removeEmptyTables <- function(L,pc = "all"){
+  if(pc == "all"){
+    pc <- c("paleo","chron")
+  }
+
+  at <- list()#initialize alltables
+  for(tpc in pc){
+    PC <- L[[paste0(tpc,"Data")]]
+    if(length(PC) == 0){
+      next
+    }
+
+    for(ni in 1:length(PC)){
+      for(mi in 1:length(PC[[ni]]$measurementTable)){
+        TT <- PC[[ni]]$measurementTable[[mi]]
+        loTT <- TT[purrr::map_lgl(TT,is.list)]
+        tt <- loTT[[1]]$values
+        tnames <- loTT[[1]]$variableName
+        if(length(loTT) > 1){
+          for(c in 2:length(loTT)){
+            tt <- cbind(tt,loTT[[c]]$values)
+            tnames <- c(tnames,loTT[[c]]$variableName)
+          }
+        }
+
+        if(all(is.na(tt))){# it's empty
+          L[[paste0(tpc,"Data")]][[ni]]$measurementTable[[mi]] <- NULL
+          print(paste("Removed",L$dataSetName,tpc,ni,"measurementTable",mi,"because it had no data"))
+        }
+      }
+      if(length(L[[paste0(tpc,"Data")]][[ni]]$measurementTable) == 0){#remove the meas table
+        L[[paste0(tpc,"Data")]][[ni]]$measurementTable <- NULL
+      }
+      if(length(L[[paste0(tpc,"Data")]][[ni]]) == 0){
+        L[[paste0(tpc,"Data")]][[ni]] <- NULL
+      }
+      if(length(L[[paste0(tpc,"Data")]]) == 0){
+        L[[paste0(tpc,"Data")]] <- NULL
+      }
+    }
+
+  }
+  return(L)
+}
+
+
+
+
+
 #' Create vectors for lumping
 #'
 #' @param TS TS object

@@ -132,6 +132,39 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 }
 
 
+#' Get the most recent version of the compilation (before updating)
+#'
+#' @param project project name
+#' @param udsn a vector of dataset names in the project
+#' @param versionMetaId ID of the versioning qc sheet
+#' @param googEmail google user ID
+#' @description Gets the last version of the database (before updating)
+#' @import googlesheets4
+#' @import magrittr
+#' @import dplyr
+#' @import googledrive
+#' @import stringr
+#' @return the new version string
+#' @export
+#'
+#' @examples
+lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
+
+  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
+
+  #get last versions udsn
+  versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
+    dplyr::filter(project == (!!project)) %>%
+    dplyr::arrange(desc(versionCreated))
+
+    p <- versionSheet$publication[1]
+    d <- versionSheet$dataset[1]
+    m <- versionSheet$metadata[1]
+
+  lastVers <- str_c(p,d,m,sep = "_")
+  return(lastVers)
+
+}
 
 #' Do a complete update to a project
 #'
@@ -184,7 +217,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     D <- purrr::map(D,nUniqueAges)
     D <- purrr::map(D,nGoodAges)
     D <- purrr::map(D,nOtherAges)
-    D <- purrr::map(D,fixExcelIssues)
+   # D <- purrr::map(D,fixExcelIssues)
     D <- purrr::map(D,standardizeChronVariableNames)
   }
 
@@ -211,6 +244,8 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   udsn <- unique(lipdR::pullTsVariable(TS,"dataSetName"))
 
   #1b. New version name
+  lastProjVersion <- lastVersion(project,googEmail = googEmail)
+
   projVersion <- tickVersion(project,udsn,googEmail = googEmail)
 
   #setup new version
@@ -236,7 +271,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   sTS <- lipdR::splitInterpretationByScope(TS)
 
   #2. Create a new qc sheet from files
-  qcC <- createQCdataFrame(sTS,templateId = qcId,ageOrYear = ageOrYear)
+  qcC <- createQCdataFrame(sTS,templateId = qcId,ageOrYear = ageOrYear,compilationName = project,compVersion = lastProjVersion)
   readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv"))
 
   #3. Get the updated QC sheet from google
@@ -289,7 +324,12 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   qcC <- qcC2[miC,]
   qcB <- qcB2
 
-  qc <- daff::merge_data(qcA2,qcB2,qcC2)
+  #turn all NULLs and blanks to NAs
+  qcA[is.null(qcA) | qcA == ""] <- NA
+  qcB[is.null(qcB) | qcB == ""] <- NA
+  qcC[is.null(qcC) | qcC == ""] <- NA
+
+  qc <- daff::merge_data(qcA,qcB,qcC)
 
   #this should fix conflicts that shouldnt exist
   #qc <- resolveDumbConflicts(qc)

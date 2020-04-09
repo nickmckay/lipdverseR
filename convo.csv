@@ -1,6 +1,6 @@
 qcSheetName,tsName,type
 archiveType,archiveType,character
-inThisCompilation,inCompilationBeta,special
+inThisCompilation,inCompilationBeta_struct,inCompilation
 calibration_method,calibration_method,character
 basis,climateInterpretation1_basis,character
 direction,climateInterpretation1_direction,character

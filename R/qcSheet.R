@@ -427,14 +427,18 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
                   }else if(length(compInd)>1){#Oh no
                     stop("cant have two compilation matches")
                   }else{#must be a new compilation!
+                    if(length(compNames)==0){#no comps in this TS yet
+                      compNum <- 0
+                      }
                     #what compilation number?
                     thisCompNum <- max(as.numeric(compNum))+1
                     #append this version
-                    newTS[[i]][str_c(inCompilationBeta,thisCompNum,"_compilationName")] <- c(compilationName)
-                    newTS[[i]][str_c(inCompilationBeta,thisCompNum,"_compilationVersion")] <- c(newVersion)
+                    newTS[[i]][str_c("inCompilationBeta",thisCompNum,"_compilationName")] <- c(compilationName)
+                    newTS[[i]][str_c("inCompilationBeta",thisCompNum,"_compilationVersion")] <- c(newVersion)
                   }
                 }
-              }
+              }else{#everything else
+                newTS[[i]][thisTSnames[j]] <- varFun(qcs[qci,rn])
 
             }
             if(length(rn) > 1){
@@ -442,6 +446,7 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
             }
           }
         }#end loop through variables and force an update
+      }
       }
     }
   }
@@ -462,7 +467,7 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
 #' @import dplyr
 #' @import geoChronR
 #' @return a data.frame QC sheet
-createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.specific = c("depth","yr"),ageOrYear = "age",compilationName = NA,newVersion = NA){
+createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.specific = c("depth","yr"),ageOrYear = "age",compilationName = NA,compVersion = NA){
   #setup reporting
   report <- c()
   noMatch <- c()
@@ -657,10 +662,9 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
   #out[1,] <- qcs[1,]
   for(i in 1:length(toPull)){
     n2p <- convo$tsName[toPull[i]==convo$qcSheetName]
-    if(n2p == "inCompilationBeta"){#figure out wheter it's in the compilation or not
-
-    }
-    if(any(n2p==allNames)){
+    if(n2p == "inCompilationBeta_struct"){#figure out wheter it's in the compilation or not
+        vec <- inThisCompilation(TS = fsTS,compName = compilationName,compVers = compVersion)
+    }else if(any(n2p==allNames)){#regular check
       vec <- pullTsVariable(fsTS,n2p)
       #check to see if vec is authors
 
@@ -690,12 +694,26 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
 }
 
 
+#' In this compilation
+#'
+#' @param TS
+#' @param compName
+#' @param compVers
+#'
+#' @return
+#' @export
+#'
+#' @examples
 inThisCompilation <- function(TS,compName,compVers){
-  allNames <- unique(unlist(sapply(TS,names)))#get all names in TS
+  allNames <- sort(unique(unlist(sapply(TS,names))))#get all names in TS
   #get all the names of the compilations
   allComps <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationName",allNames)]
   allVers <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationVersion",allNames)]
 
+if(length(allComps) == 0){
+ return(matrix(NA,nrow = length(TS)))
+
+}
   allCompNames <- vector(mode = "list",length=length(allComps))
   allCompVersions <- vector(mode = "list",length=length(allComps))
 
