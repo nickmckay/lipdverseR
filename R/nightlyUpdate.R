@@ -280,7 +280,41 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
   qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"),guess_max = Inf) %>%
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
-  qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
+
+
+  #qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC) Old way
+  #NPM: 2.20.20 added to help merge_data work as desired
+
+  #shuffle in
+  dBC <- dplyr::anti_join(qcB,qcC,by = "TSid")
+  dCB <- dplyr::anti_join(qcC,qcB,by = "TSid")
+  dCA <- dplyr::anti_join(qcC,qcA,by = "TSid")
+
+  qcA2 <- dplyr::bind_rows(qcA,dCA)
+  qcB2 <- dplyr::bind_rows(qcB,dCB)
+  qcC2 <- dplyr::bind_rows(qcC,dBC)
+
+  #check once more
+  dBA <- dplyr::anti_join(qcB,qcA2,by = "TSid")
+  qcA2 <- dplyr::bind_rows(qcA2,dBA)
+
+
+  #arrange by qcB TSid
+  miA <- match(qcB2$TSid,qcA2$TSid)
+  miC <- match(qcB2$TSid,qcC2$TSid)
+
+  qcA <- qcA2[miA,]
+
+  qcC <- qcC2[miC,]
+  qcB <- qcB2
+
+  #turn all NULLs and blanks to NAs
+  qcA[is.null(qcA) | qcA == ""] <- NA
+  qcB[is.null(qcB) | qcB == ""] <- NA
+  qcC[is.null(qcC) | qcC == ""] <- NA
+
+  qc <- daff::merge_data(qcA,qcB,qcC)
+
 
   #this should fix conflicts that shouldnt exist
   #qc <- resolveDumbConflicts(qc)

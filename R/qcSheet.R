@@ -512,8 +512,21 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
     }
     fsTS <- pushTsVariable(fsTS,"climateInterpretation1_isAnnual",nci1s,createNew = TRUE)
 
-    minAge <- sapply(allAge,min,na.rm=TRUE)
-    maxAge <- sapply(allAge,max,na.rm=TRUE)
+    #find NAs before
+    allVals <- pullTsVariable(fsTS,"paleoData_values")
+
+    goodfun <- function(age,vals,fun){
+      out <- fun(age[is.finite(vals)],na.rm = TRUE)
+    }
+
+    minAge <- purrr::map2_dbl(allAge,allVals,goodfun,min)
+    minAge[!is.finite(minAge)] <- NA
+
+    maxAge <- purrr::map2_dbl(allAge,allVals,goodfun,max)
+    maxAge[!is.finite(maxAge)] <- NA
+
+    # minAge <- sapply(allAge,min,na.rm=TRUE)
+    # maxAge <- sapply(allAge,max,na.rm=TRUE)
 
     #ages per kyr
     nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
