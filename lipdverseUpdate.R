@@ -11,7 +11,7 @@ setwd("/Users/npm4/GitHub/lipdverseR/")
 
 #updateProject("wNAm","/Users/npm4/Dropbox/HoloceneLiPDLibrary/masterDatabase/","/Users/npm4/GitHub/lipdverse/html/",qcId = "166sUZ3rnjizRv2KCtcaaEj8NKIQgW6L1_z78VtNgOM4",lastUpdateId = "180Cig1Z2qFUKq-kVe0teQYkNrZps8yPZDgWu8xExciU",googEmail = "nick.mckay2@gmail.com",updateWebpages = FALSE,standardizeTerms = TRUE)
 
-updateProject("test","/Users/npm4/Dropbox/HoloceneLiPDLibrary/testDatabase/","/Users/npm4/GitHub/lipdverse/html/",qcId = "1P0_e-frsQIYFLjLBiJTfouEbdIhMW7UPfYGZBnaDep0",lastUpdateId = "1RbAs0qRWqvHCUfI7q_Er5UKAxRy-otRh7pdM2PKYCHw",googEmail = "nick.mckay2@gmail.com",updateWebpages = FALSE,standardizeTerms = FALSE)
+updateProject("test","/Users/npm4/Dropbox/HoloceneLiPDLibrary/testDatabase/","/Users/npm4/GitHub/lipdverse/html/",qcId = "1P0_e-frsQIYFLjLBiJTfouEbdIhMW7UPfYGZBnaDep0",lastUpdateId = "1RbAs0qRWqvHCUfI7q_Er5UKAxRy-otRh7pdM2PKYCHw",googEmail = "nick.mckay2@gmail.com",updateWebpages = TRUE,standardizeTerms = FALSE)
 
 # updateProject("PalMod","/Users/npm4/Dropbox/LiPD/PalMod/","/Users/npm4/GitHub/lipdverse/html/",qcId = "18Ur3k8Dfub9y3arfO_RKZYFUcYSfYAGy_vuKznv9MLM",googEmail = "nick.mckay2@gmail.com",updateWebpages = TRUE,lastUpdateId = "1WujcuW4rPI8G9iyxeVlNB8oCCsj8K7ggqeBMkkE8zXA",standardizeTerms = FALSE)
 
@@ -22,4 +22,4 @@ updateProject("test","/Users/npm4/Dropbox/HoloceneLiPDLibrary/testDatabase/","/U
 
 #drive_share(as_id("1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug"),role = "writer", type = "anyone")
 #createProjectDashboards(D,TS,"/Users/npm4/GitHub/lipdverse/html/","iso2k","0_14_2",currentVersion = TRUE)
-system("/Users/npm4/Dropbox/Scripts/update_lipdverse")
+#system("/Users/npm4/Dropbox/Scripts/update_lipdverse")

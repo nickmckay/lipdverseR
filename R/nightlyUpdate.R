@@ -181,7 +181,7 @@ lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_
 #' @import lipdR
 #' @import geoChronR
 #' @export
-updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE,ageOrYear = "age"){
+updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE,ageOrYear = "age",restrictWebpagesToCompilation = TRUE){
   #
   # project <- "globalHolocene"
   # lipdDir <- "~/Dropbox/HoloceneLiPDLibrary/masterDatabase/"
@@ -384,10 +384,30 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   }
 
 
-
   #6 Update lipdverse
   if(updateWebpages){
-    createProjectDashboards(nD,nTS,webDirectory,project,projVersion,currentVersion = TRUE)
+
+    #check to see which datasets are this compilation
+    if(restrictWebpagesToCompilation){
+      itc <- inThisCompilation(nTS,project,projVersion)
+      ndsn <- pullTsVariable(nTS, "dataSetName")
+      dsnInComp <- ndsn[map_lgl(itc,isTRUE)]
+      dsnNotInComp <- ndsn[!map_lgl(itc,isTRUE)]
+      nicdi <- which(!names(nD) %in% dsnInComp)
+      ictsi <- which(ndsn %in% dsnInComp)
+      icdi <- which(names(nD) %in% dsnInComp)
+      if(length(ictsi) == 0 || length(icdi) == 0){
+        stop("didn't find any datasets in the compilation for the webpage")
+      }
+    }else{
+      ictsi <- seq_along(nTS)
+      icdi <- seq_along(nD)
+      nicdi <- NULL
+
+    }
+
+
+    createProjectDashboards(nD[icdi],nTS[ictsi],webDirectory,project,projVersion,currentVersion = TRUE)
 
     #load back in files
     DF <- readLipd(file.path(webDirectory,project,projVersion))
@@ -399,13 +419,20 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     dir.create(file.path(webDirectory,project,"current_version"))
     file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version"), recursive=TRUE,overwrite = TRUE)
 
+    #add datasets not in compilation into DF
+    if(length(nicdi)>0){
+      DF <- append(DF,nD[nicdi])
+    }
+    if(length(DF) != length(nD)){
+      stop("Uh oh, you lost or gained datasets while creating the webpages")
+    }
+
   }else{
     DF <- nD
   }
   TSF <- extractTs(DF)
   sTSF <- splitInterpretationByScope(TSF)
-  qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear,project,projVersion)
-
+  qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear,compilationName = project,compVersion = projVersion)
 
   #7 Update QC sheet on google (and make a lastUpdate.csv file)
 

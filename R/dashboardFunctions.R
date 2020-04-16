@@ -615,8 +615,11 @@ createProjectRmd <- function(webDirectory,project,version){
     str_c("\n") %>%
     str_c("            \n") %>%
     str_c(str_c("[View changelog for ", project,version,"](metadataChangelog.html)"),sep = "\n") %>%
-    str_c("\n")
-
+    str_c("\n") %>%
+    str_c("            \n") %>%
+    str_c("*** \n") %>%
+    str_c("            \n") %>%
+    str_c("Information and links to compilation publications and long-term archival at [lipdverse.org](http://lipdverse.org) main page")
 
   #load in mapchunk
   mapChunk <- read_file(file.path(webDirectory,"mapChunk.Rmd"))
