@@ -1,3 +1,31 @@
+#' add google tracking code
+#'
+#' @param htmlPath path to html file
+#' @param tag tag code, default is readLines(file.path(webDirectory,"gatag.html"))
+#'
+#' @return
+#' @export
+addGoogleTracker <- function(htmlPath, tag = readLines(file.path(webDirectory,"gatag.html"))){
+  html <- readLines(htmlPath)
+  hl <- stringr::str_locate(html,"<head>")
+
+  #check for google
+  if(any(str_detect(html,fixed("<!-- Global site tag (gtag.js) - Google Analytics -->"))))
+  {
+    return("Already has a tag")
+  }
+
+  hr <- min(which(!is.na(hl[,1])))
+
+  if(is.finite(hr)){
+    tt <- c(html[1:hr],tag,html[-c(1:hr)])
+    writeLines(text = tt,con = htmlPath)
+    return(paste("Added google header to",htmlPath))
+  }else{
+    return("no <head> found")
+  }
+}
+
 #Dashboard builder functions...
 #' Plot a TS column as a in a lipd dashboard
 #'

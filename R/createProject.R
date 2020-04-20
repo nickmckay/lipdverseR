@@ -82,6 +82,10 @@ map.meta <- data.frame(dataSetName = udsn, #datasetname
 createProjectRmd(webDirectory,project, version )
 
 rmarkdown::render(file.path(webDirectory,project,version,"index.Rmd"))
+#add google tag
+tag <- readLines(file.path(webDirectory,"gatag.html"))
+
+message <- addGoogleTracker(file.path(webDirectory,project,version,"index.html"),tag)
 
 failed = c()
 for(i in 1:nrow(map.meta)){
@@ -100,7 +104,10 @@ for(i in 1:nrow(map.meta)){
     test = try(createDashboardRmd(thisTS = thisTS,i = i,webDirectory = webDirectory,project = project,version = version,chronTS = chronTS,map.meta = map.meta))
     Sys.sleep(1)
     test = try(rmarkdown::render(file.path(webDirectory,project,version,str_c(fname,".Rmd"))))
-
+    htmlFile <- file.path(webDirectory,project,version,str_c(fname,".html"))
+    if(file.exists(htmlFile)){
+      message <- addGoogleTracker(htmlFile,tag)
+    }
     if(grepl(class(test),"try-error")){
       failed = c(failed, udsn[i])
     }else{
