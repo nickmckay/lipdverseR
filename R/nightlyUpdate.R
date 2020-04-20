@@ -417,7 +417,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
     unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
     dir.create(file.path(webDirectory,project,"current_version"))
-    file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version"), recursive=TRUE,overwrite = TRUE)
+    file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version",.Platform$file.sep), recursive=TRUE,overwrite = TRUE)
 
     #add datasets not in compilation into DF
     if(length(nicdi)>0){

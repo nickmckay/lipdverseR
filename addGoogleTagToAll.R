@@ -17,5 +17,4 @@ addTagToDirec <- function(td){
 for(i in 1:length(direc)){
   print(i)
   addTagToDirec(direc[i])
-
 }
