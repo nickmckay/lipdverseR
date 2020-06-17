@@ -181,7 +181,7 @@ lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_
 #' @import lipdR
 #' @import geoChronR
 #' @export
-updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE,ageOrYear = "age",restrictWebpagesToCompilation = TRUE){
+updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE,ageOrYear = "age",restrictWebpagesToCompilation = TRUE,projVersion = NA){
   #
   # project <- "globalHolocene"
   # lipdDir <- "~/Dropbox/HoloceneLiPDLibrary/masterDatabase/"
@@ -196,11 +196,13 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
   googledrive::drive_auth(email = googEmail,cache = TRUE)
 
-  #check if update is necessary
-  toUpdate <- updateNeeded(project,webDirectory,lipdDir,qcId,googEmail = googEmail)
+  if(is.na(projVersion)){#skip check if new version is specified
+    #check if update is necessary
+    toUpdate <- updateNeeded(project,webDirectory,lipdDir,qcId,googEmail = googEmail)
 
-  if(!toUpdate){
-    return("No update needed")
+    if(!toUpdate){
+      return("No update needed")
+    }
   }
   #an update is needed!!!
 
@@ -246,8 +248,9 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   #1b. New version name
   lastProjVersion <- lastVersion(project,googEmail = googEmail)
 
-  projVersion <- tickVersion(project,udsn,googEmail = googEmail)
-
+  if(is.na(projVersion)){
+    projVersion <- tickVersion(project,udsn,googEmail = googEmail)
+  }
   #setup new version
   if(!dir.exists(file.path(webDirectory,project))){
     dir.create(file.path(webDirectory,project))
@@ -263,6 +266,14 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   if(length(et) > 0){
     ntsid <- purrr::map_chr(et,lipdR::createTSid)
     TSid[et] <- ntsid
+    TS <- lipdR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
+  }
+
+  #check for duplicate TSids
+  while(any(duplicated(TSid))){
+    wd <- which(duplicated(TSid))
+    dtsid <- paste0(TSid[wd],"-dup")
+    TSid[wd] <- dtsid
     TS <- lipdR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
   }
 
@@ -282,6 +293,13 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   #now get the file
   qcB <- getGoogleQCSheet(qcId)
+  #check for duplicate TSids
+  while(any(duplicated(qcB$TSid))){
+    wd <- which(duplicated(qcB$TSid))
+    dtsid <- paste0(qcB$TSid[wd],"-dup")
+    qcB$TSid[wd] <- dtsid
+  }
+
   readr::write_csv(qcB,path = file.path(webDirectory,project,projVersion,"qcGoog.csv"))
 
   lu <- getGoogleQCSheet(lastUpdateId)
@@ -331,6 +349,18 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   qc <- daff::merge_data(qcA,qcB,qcC)
 
+  if(any(names(qc) == "inThisCompilation")){
+  #check for conflicts in "inThisCompilation"
+  #this is especially important when first starting this variable
+  #default to google qc sheet (qcB)
+  shouldBeTrue <- which(qc$inThisCompilation == "((( null ))) TRUE /// FALSE")
+  shouldBeFalse <- which(qc$inThisCompilation == "((( null ))) FALSE /// TRUE")
+  qc$inThisCompilation[shouldBeTrue] <- "TRUE"
+  qc$inThisCompilation[shouldBeFalse] <- "FALSE"
+  }
+
+
+
   #this should fix conflicts that shouldnt exist
   #qc <- resolveDumbConflicts(qc)
 
@@ -344,7 +374,9 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
 
   #5. Update sTS from merged qc
+  #problem is here
   nsTS <- updateFromQC(sTS,qc,project,projVersion)
+
   nTS <- combineInterpretationByScope(nsTS)
 
 
@@ -383,17 +415,19 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     }
   }
 
+  #check to see which datasets are this compilation
+    itc <- inThisCompilation(nTS,project,projVersion)
+    ndsn <- pullTsVariable(nTS, "dataSetName")
+    dsnInComp <- ndsn[map_lgl(itc,isTRUE)]
+    dsnNotInComp <- ndsn[!map_lgl(itc,isTRUE)]
+    nicdi <- which(!names(nD) %in% dsnInComp)
+
 
   #6 Update lipdverse
   if(updateWebpages){
 
-    #check to see which datasets are this compilation
+    #restrict as necessary
     if(restrictWebpagesToCompilation){
-      itc <- inThisCompilation(nTS,project,projVersion)
-      ndsn <- pullTsVariable(nTS, "dataSetName")
-      dsnInComp <- ndsn[map_lgl(itc,isTRUE)]
-      dsnNotInComp <- ndsn[!map_lgl(itc,isTRUE)]
-      nicdi <- which(!names(nD) %in% dsnInComp)
       ictsi <- which(ndsn %in% dsnInComp)
       icdi <- which(names(nD) %in% dsnInComp)
       if(length(ictsi) == 0 || length(icdi) == 0){
@@ -407,7 +441,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     }
 
 
-    createProjectDashboards(nD[icdi],nTS[ictsi],webDirectory,project,projVersion,currentVersion = TRUE)
+    createProjectDashboards(nD[icdi],nTS[ictsi],webDirectory,project,projVersion)
 
     #load back in files
     DF <- readLipd(file.path(webDirectory,project,projVersion))
@@ -417,12 +451,13 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
     unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
     dir.create(file.path(webDirectory,project,"current_version"))
-    file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version",.Platform$file.sep), recursive=TRUE,overwrite = TRUE)
+    file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version",.Platform$file.sep), recursive=FALSE,overwrite = TRUE)
 
     #add datasets not in compilation into DF
     if(length(nicdi)>0){
       DF <- append(DF,nD[nicdi])
     }
+
     if(length(DF) != length(nD)){
       stop("Uh oh, you lost or gained datasets while creating the webpages")
     }
@@ -437,12 +472,17 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   #7 Update QC sheet on google (and make a lastUpdate.csv file)
 
   qc2w <- qcF
+  qc2w[is.null(qc2w) | qc2w == ""] <- NA
+
+
+  #find differences for log
+  diff <- daff::diff_data(qcA,qc2w,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
+
   qc2w[is.na(qc2w)] <- ""
 
   readr::write_csv(qc2w,path = file.path(webDirectory,project,"newLastUpdate.csv"))
 
-  #find differences for log
-  diff <- daff::diff_data(qcA,qc2w,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
+
   daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
 
   googledrive::drive_update(file = googledrive::as_id(lastUpdateId),media = file.path(webDirectory,project,"newLastUpdate.csv"))
@@ -472,7 +512,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   newRow$publication <- pdm[1]
   newRow$dataset <- pdm[2]
   newRow$metadata <- pdm[3]
-  newRow$dsns <- paste(unique(lipdR::pullTsVariable(TSF,"dataSetName")),collapse = "|")
+  newRow$dsns <- paste(unique(dsnInComp),collapse = "|")
   newRow$versionCreated <- lubridate::now(tzone = "UTC")
   newRow$`zip MD5` <- directoryMD5(lipdDir)
 

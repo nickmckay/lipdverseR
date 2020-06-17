@@ -422,7 +422,7 @@ standardizeValuesInValues <- function(TS,googId){
 #' @export
 standardizeTsValues <- function(TS, renamingDirectoryId  = "1b-4arcNxxGsArCM6XfjW6y6yAp85BMlF-Gn8au4Zygg"){
   #get the directory
-  direc <- getConverter(renamingDirectoryId,howLong = 1)
+  direc <- getConverter(renamingDirectoryId,howLong = 30)
 
   #get all the names in the TS
   allNames <- unique(unlist(sapply(TS,names)))

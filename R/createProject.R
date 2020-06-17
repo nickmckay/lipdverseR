@@ -22,7 +22,7 @@
 #' @export
 #'
 #' @examples
-createProjectDashboards <- function(D,TS,webDirectory,project,version,currentVersion = TRUE){
+createProjectDashboards <- function(D,TS,webDirectory,project,version){
 #if there's no html directory, create one
 if(!dir.exists(file.path(webDirectory,project))){
   dir.create(file.path(webDirectory,project))

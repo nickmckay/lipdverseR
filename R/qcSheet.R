@@ -109,8 +109,7 @@ nGoodAges <- function(L,maxAge = 12000,c14names = c("age")){
 
 
     #find good age types
-    ind <- which(grepl("14c",at, ignore.case = TRUE) |
-                   grepl("c14",at, ignore.case = TRUE) |
+    ind <- which(grepl("14",at, ignore.case = TRUE) |
                    grepl("u/th",at, ignore.case = TRUE) |
                    grepl("tephra",at, ignore.case = TRUE)
     )
@@ -423,7 +422,7 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
                     #what compilation number?
                     thisCompNum <- compNum[compInd]
                     #append this version
-                    newTS[[i]][str_c(inCompilationBeta,thisCompNum,"_compilationVersion")] <- c(newTS[[i]][str_c(inCompilationBeta,thisCompNum,"_compilationVersion")],newVersion)
+                    newTS[[i]][[str_c("inCompilationBeta",thisCompNum,"_compilationVersion")]] <- c(newTS[[i]][[str_c("inCompilationBeta",thisCompNum,"_compilationVersion")]],newVersion)
                   }else if(length(compInd)>1){#Oh no
                     stop("cant have two compilation matches")
                   }else{#must be a new compilation!
@@ -474,7 +473,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
   #
   #download qc sheet template
   setwd(here::here())
-  x <- googledrive::drive_get(as_id(templateId))
+  x <- googledrive::drive_get(googledrive::as_id(templateId))
   qc <- googledrive::drive_download(x,path = here::here("template.csv"),type = "csv",overwrite = T)
   qcs <- readr::read_csv(here::here("template.csv"),guess_max = Inf)
 
@@ -662,6 +661,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
   #out[1,] <- qcs[1,]
   for(i in 1:length(toPull)){
     n2p <- convo$tsName[toPull[i]==convo$qcSheetName]
+    if(length(n2p) == 0){n2p <- "missingVariable!!!"}
     if(n2p == "inCompilationBeta_struct"){#figure out wheter it's in the compilation or not
         vec <- inThisCompilation(TS = fsTS,compName = compilationName,compVers = compVersion)
     }else if(any(n2p==allNames)){#regular check
