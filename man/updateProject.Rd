@@ -4,10 +4,20 @@
 \alias{updateProject}
 \title{Do a complete update to a project}
 \usage{
-updateProject(project, lipdDir, webDirectory, qcId, lastUpdateId,
+updateProject(
+  project,
+  lipdDir,
+  webDirectory,
+  qcId,
+  lastUpdateId,
   versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
-  googEmail = NULL, updateWebpages = TRUE, standardizeTerms = TRUE,
-  ageOrYear = "age", restrictWebpagesToCompilation = TRUE)
+  googEmail = NULL,
+  updateWebpages = TRUE,
+  standardizeTerms = TRUE,
+  ageOrYear = "age",
+  restrictWebpagesToCompilation = TRUE,
+  projVersion = NA
+)
 }
 \arguments{
 \item{project}{project name}

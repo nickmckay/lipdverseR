@@ -4,13 +4,18 @@
 \alias{addGoogleTracker}
 \title{add google tracking code}
 \usage{
-addGoogleTracker(htmlPath, tag = readLines(file.path(webDirectory,
-  "gatag.html")))
+addGoogleTracker(
+  htmlPath,
+  tag = readLines(file.path(webDirectory, "gatag.html"))
+)
 }
 \arguments{
 \item{htmlPath}{path to html file}
 
 \item{tag}{tag code, default is readLines(file.path(webDirectory,"gatag.html"))}
+}
+\value{
+
 }
 \description{
 add google tracking code

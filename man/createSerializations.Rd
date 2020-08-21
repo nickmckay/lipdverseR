@@ -4,13 +4,21 @@
 \alias{createSerializations}
 \title{create serializations of a database in R, matlab and python}
 \usage{
-createSerializations(D, webDirectory, project, projVersion,
+createSerializations(
+  D,
+  webDirectory,
+  project,
+  projVersion,
   matlabUtilitiesPath = "/Users/npm4/GitHub/LiPD-utilities/Matlab",
   matlabPath = "/Applications/MATLAB_R2015b.app/bin/matlab",
-  python3Path = "/Users/npm4/anaconda/bin/python3")
+  python3Path = "/Users/npm4/anaconda/bin/python3"
+)
 }
 \arguments{
 \item{python3Path}{}
+}
+\value{
+
 }
 \description{
 creates serialization; requires that Matlab and Python be installed, along with lipd utilities for those languages.

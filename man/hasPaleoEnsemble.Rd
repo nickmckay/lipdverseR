@@ -9,6 +9,9 @@ hasPaleoEnsemble(L)
 \arguments{
 \item{L}{}
 }
+\value{
+
+}
 \description{
 has paleo ensemble
 }

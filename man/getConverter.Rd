@@ -6,6 +6,9 @@
 \usage{
 getConverter(googId, howLong = 30)
 }
+\value{
+
+}
 \description{
 Get a converter from google drive
 }

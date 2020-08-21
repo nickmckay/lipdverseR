@@ -9,6 +9,9 @@ hasDepth(L, dnames = c("depth"))
 \arguments{
 \item{dnames}{names to use to look for depth}
 }
+\value{
+
+}
 \description{
 does the paleodata have depth?
 }

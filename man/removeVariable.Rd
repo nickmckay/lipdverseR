@@ -9,6 +9,9 @@ removeVariable(TS, variable)
 \arguments{
 \item{variable}{}
 }
+\value{
+
+}
 \description{
 remove all instances of a variable from a TS
 }
