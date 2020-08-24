@@ -2,10 +2,10 @@ tibDiff <- function(tcol){
   #check for a change
   old <- tcol[1]
   new <- tcol[2]
-  if(is.na(old)){
+  if(is.na(old) | tolower(old) == "na" | is.null(old)){
     old <- ""
   }
-  if(is.na(new)){
+  if(is.na(new) | tolower(new) == "na" | is.null(new)){
     new <- ""
   }
 
@@ -30,6 +30,7 @@ createChangelog <- function(Lold,
 
   cl <- c() #initialize changelog
   ct <- c() #initialize change type
+  cv <- c() #initialize change variable
   checked.base <- FALSE #initialize
 
   # Check for paleo and chronData -------------------------------------------
@@ -46,10 +47,12 @@ createChangelog <- function(Lold,
   if(npdo == 0 & npdn > 0){
     cl <- c(cl,"PaleoData has been added to this dataset")
     ct <- c(ct,"Dataset")
+    cv <- c(cv,NA)
   }
   if(npdo > 0 & npdn == 0){
     cl <- c(cl,"All PaleoData have been removed from this dataset")
     ct <- c(ct,"Dataset")
+    cv <- c(cv,NA)
   }
 
   #chronData
@@ -65,10 +68,14 @@ createChangelog <- function(Lold,
   if(ncdo == 0 & ncdn > 0){
     cl <- c(cl,"chronData has been added to this dataset")
     ct <- c(ct,"Dataset")
+    cv <- c(cv,NA)
+
   }
   if(ncdo > 0 & ncdn == 0){
     cl <- c(cl,"All chronData have been removed from this dataset")
     ct <- c(ct,"Dataset")
+    cv <- c(cv,NA)
+
   }
 
 
@@ -104,6 +111,7 @@ createChangelog <- function(Lold,
                 glue("Column '{tn$paleoData_TSid[i]}', with variable name '{tn$paleoData_variableName[i]}', was added to the dataset")
         )
         ct <- c(ct,"PaleoData table")
+        cv <- c(cv,NA)
       }
       #then remove them - we won't describe the details of added columns
       tn <- tn[-wa,]
@@ -117,6 +125,8 @@ createChangelog <- function(Lold,
                 glue("Column '{to$paleoData_TSid[i]}', with variable name '{to$paleoData_variableName[i]}', was removed from the dataset")
         )
         ct <- c(ct,"PaleoData table")
+        cv <- c(cv,NA)
+
       }
       #then remove them - this should force the datasets to always have the same number of columns
       to <- to[-wr,]
@@ -190,18 +200,34 @@ createChangelog <- function(Lold,
     if(nrow(cldf)>0){
       #fold into changelog
       cl <- c(cl,paste(names(cldf),cldf,sep = ": "))
-      ct <- c(ct,rep("Base metadata",times = ncol(cldf)))
+      #what type of base change?
+      for(cli in 1:ncol(cldf)){
+        if(grepl("pub[0-9]_",names(cldf)[cli])){
+          ct <- c(ct,"Publication metadata")
+        }else if(grepl("funding[0-9]_",names(cldf)[cli])){
+          ct <- c(ct,"Funding metadata")
+        }else if(grepl("geo_",names(cldf)[cli])){
+          ct <- c(ct,"Geographic metadata")
+        }else{
+          ct <- c(ct,"Base metadata")
+        }
+      }
+      cv <- c(cv,names(cldf))
     }
 
     checked.base <- TRUE
     # Check paleoData column metadata -----------------------------------------
 
-    paleoSelect <- function(x,exclude.paleo){o <- dplyr::select(x,starts_with("paleoData_"),
-                                                                starts_with("interpretation"),
-                                                                starts_with("calibration")) %>%
-      dplyr::select(-starts_with("paleoData_has"),
-                    -!!exclude.paleo)
-    return(o)}
+    paleoSelect <- function(x,exclude.paleo){
+
+      exclude.paleo <- exclude.paleo[exclude.paleo %in% names(x)]
+
+      o <- dplyr::select(x,starts_with("paleoData_"),
+                         starts_with("interpretation"),
+                         starts_with("calibration")) %>%
+        dplyr::select(-starts_with("paleoData_has"),
+                      -!!exclude.paleo)
+      return(o)}
 
 
     #make all columns character for this comparison
@@ -226,8 +252,16 @@ createChangelog <- function(Lold,
       if(nrow(cldf) > 0){
         cl <- c(cl,
                 paste(glue::glue("{tsname} ({tsi})"),names(cldf),cldf,sep = ": "))
-        ct <- c(ct,
-                rep("Paleo Column metadata",times = ncol(cldf)))
+        for(cli in 1:ncol(cldf)){
+          if(grepl(pattern = "interpretation[0-9]_",names(cldf)[cli])){
+            ct <- c(ct,"Paleo Interpretation metadata")
+          }else if(startsWith(prefix = "calibration",names(cldf)[cli])){
+            ct <- c(ct,"Paleo Calibration metadata")
+          }else{
+            ct <- c(ct,"Paleo Column metadata")
+          }
+        }
+        cv <- c(cv,names(cldf))
 
       }
     }
@@ -236,13 +270,18 @@ createChangelog <- function(Lold,
 
     # compare the paleoData_values --------------------------------------------
     for(i in 1:nrow(tn)){
+      tov <- to$paleoData_values[[i]]
+      tov[is.na(tov)] <- -999
+      tnv <- tn$paleoData_values[[i]]
+      tnv[is.na(tnv)] <- -999
 
-      if(!all(to$paleoData_values[[i]] == tn$paleoData_values[[i]])){
+      if(!all(tov == tnv)){
         tsi <- tn$paleoData_TSid[i]
         tsname <- tn$paleoData_variableName[i]
         cl <- c(cl,
                 glue::glue("{tsname} ({tsi}): The paleoData_values have changed"))
         ct <- c(ct,"PaleoData values")
+        cv <- c(cv,"paleoData_values")
       }
     }
 
@@ -264,10 +303,10 @@ createChangelog <- function(Lold,
 
     #check TSids are unique
     if(any(duplicated(to$chronData_TSid))){
-      stop("the original dataset has duplicated TSids")
+      stop("the original dataset has duplicated chron TSids")
     }
     if(any(duplicated(tn$chronData_TSid))){
-      stop("the new dataset has duplicated TSids")
+      stop("the new dataset has duplicated chron TSids")
     }
 
 
@@ -281,6 +320,8 @@ createChangelog <- function(Lold,
                 glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
         )
         ct <- c(ct,"ChronData table")
+        cv <- c(cv,NA)
+
       }
       #then remove them - we won't describe the details of added columns
       tn <- tn[-wa,]
@@ -294,13 +335,15 @@ createChangelog <- function(Lold,
                 glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
         )
         ct <- c(ct,"ChronData table")
+        cv <- c(cv,NA)
+
       }
       #then remove them - this should force the datasets to always have the same number of columns
       to <- to[-wr,]
     }
 
     #make sure there are some rows remaining
-    if(nrow(tn) < 2 | nrow(to) < 2){
+    if(nrow(tn) < 1 | nrow(to) < 1){
       stop("there are 0 or 1 matching TSids in the chronData. You probably entered an incorrect file")
     }
 
@@ -367,19 +410,35 @@ createChangelog <- function(Lold,
       if(nrow(cldf)>0){
         #fold into changelog
         cl <- c(cl,paste(names(cldf),cldf,sep = ": "))
-        ct <- c(ct,rep("Base metadata",times = ncol(cldf)))
+        #what type of base change?
+        for(cli in 1:ncol(cldf)){
+          if(grepl("pub[0-9]_",names(cldf)[cli])){
+            ct <- c(ct,"Publication metadata")
+          }else if(grepl("funding[0-9]_",names(cldf)[cli])){
+            ct <- c(ct,"Funding metadata")
+          }else if(grepl("geo_",names(cldf)[cli])){
+            ct <- c(ct,"Geographic metadata")
+          }else{
+            ct <- c(ct,"Base metadata")
+          }
+        }
+        cv <- c(cv,names(cldf))
+
       }
 
       checked.base <- TRUE
     }
     # Check chronData column metadata -----------------------------------------
 
-    chronSelect <- function(x,exclude.chron){o <- dplyr::select(x,starts_with("chronData_"),
-                                                                starts_with("interpretation"),
-                                                                starts_with("calibration")) %>%
-      dplyr::select(-starts_with("chronData_has"),
-                    -!!exclude.chron)
-    return(o)}
+    chronSelect <- function(x,exclude.chron){
+      exclude.chron <- exclude.chron[exclude.chron %in% names(x)]
+
+      o <- dplyr::select(x,starts_with("chronData_"),
+                         starts_with("interpretation"),
+                         starts_with("calibration")) %>%
+        dplyr::select(-starts_with("chronData_has"),
+                      -!!exclude.chron)
+      return(o)}
 
 
     #make all columns character for this comparison
@@ -406,6 +465,7 @@ createChangelog <- function(Lold,
                 paste(glue::glue("{tsname} ({tsi})"),names(cldf),cldf,sep = ": "))
         ct <- c(ct,
                 rep("Chron Column metadata",times = ncol(cldf)))
+        cv <- c(cv,names(cldf))
 
       }
     }
@@ -414,20 +474,29 @@ createChangelog <- function(Lold,
 
     # compare the chronData_values --------------------------------------------
     for(i in 1:nrow(tn)){
-
-      if(!all(to$chronData_values[[i]] == tn$chronData_values[[i]])){
+      #change NAs to allow testing
+      tov <- to$chronData_values[[i]]
+      tov[is.na(tov)] <- -999
+      tnv <- tn$chronData_values[[i]]
+      tnv[is.na(tnv)] <- -999
+      if(!all(tov == tnv)){
         tsi <- tn$chronData_TSid[i]
         tsname <- tn$chronData_variableName[i]
         cl <- c(cl,
                 glue::glue("{tsname} ({tsi}): The chronData_values have changed"))
         ct <- c(ct,"ChronData values")
+        cv <- c(cv,"chronData_values")
+
       }
     }
 
   }
 
-
-  changelog <- tibble::tibble(type = ct, change = cl)
+  if(length(cl)>0){
+  changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = Lnew$dataSetName)
+  }else{
+    changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL)
+  }
 
   return(changelog)
 }
@@ -444,11 +513,14 @@ updateChangelog <- function(L,
     return(L)
   }
 
+  #restrict to just type and change for now
+  changelog <- dplyr::select(changelog,type,change)
+
   #get prior changes
   allChanges <- L$changelog
 
   #prepare changelog
-  changes <- cl %>% dplyr::group_by(type) %>% tidyr::nest()
+  changes <- changelog %>% dplyr::group_by(type) %>% tidyr::nest()
   #change to list structure
   changelist <- setNames(changes[[2]],changes[[1]]) %>%
     map(as.matrix) %>%
@@ -521,26 +593,38 @@ getChangelog <- function(L,version = "newest"){
 
   if(grepl(pattern = "new",version,ignore.case = T)){
     wv <- which(allvers == max(allvers))
-    }else if(grepl(pattern = "previous",version,ignore.case = T)){
-      wv <- which(allvers == sort(allvers,decreasing = T)[2])
-    }else if(grepl(pattern = "old",version,ignore.case = T)){
-      wv <- which(allvers == min(allvers))
-    }else{#try to match the version
-      wv <- which(allvers == as.numeric_version(version))
-    }
-
-    if(length(wv) == 0){
-      stop("failed to find a match for this version")
-    }
-
-    if(length(wv) > 1){
-      stop("Found multiple matches for this version. This is bad.")
-    }
-
-    #spit it out
-    return(L$changelog[[wv]])
-
+  }else if(grepl(pattern = "previous",version,ignore.case = T)){
+    wv <- which(allvers == sort(allvers,decreasing = T)[2])
+  }else if(grepl(pattern = "old",version,ignore.case = T)){
+    wv <- which(allvers == min(allvers))
+  }else{#try to match the version
+    wv <- which(allvers == as.numeric_version(version))
   }
+
+  if(length(wv) == 0){
+    stop("failed to find a match for this version")
+  }
+
+  if(length(wv) > 1){
+    stop("Found multiple matches for this version. This is bad.")
+  }
+
+  #spit it out
+  return(L$changelog[[wv]])
+
+}
+
+getVersion <- function(L){
+  version <- as.numeric_version(purrr::map_chr(L$changelog,"version")) %>%
+    max() %>%
+    as.character()
+
+  if(length(version)==0){
+    version <- "empty"
+  }
+
+  return(version)
+}
 
 
 createMarkdownChangelog <- function(L){
@@ -556,13 +640,11 @@ createMarkdownChangelog <- function(L){
   }
 
   mdcl <- stringr::str_replace_all(mdcl,pattern = "''",replacement = "NULL")
-
-  write_file(mdcl,"~/Desktop/bullets.Rmd")
-  rmarkdown::render("~/Desktop/bullets.Rmd")
+  return(mdcl)
 }
 
 createSingleMarkdownChangelog<- function(scl){
-#seed version
+  #seed version
   clmd <- glue("### Version: {scl$version} \n") %>%
     str_c("\n")
 
@@ -595,3 +677,99 @@ createSingleMarkdownChangelog<- function(scl){
 
 }
 
+createDatasetId <- function(){
+  return(paste(sample(c(letters,LETTERS,0:9),size = 20,replace = T),collapse = ""))
+}
+
+
+#show the most recent changes of all files that changed
+createProjectChangelogLong <- function(Dchanged,proj,projVers){
+  mdcl <- glue::glue("# Detailed changelog for {proj} version {projVers}") %>%
+    str_c("\n\n")
+
+  for(d in 1:length(Dchanged)){
+    tcl <- getChangelog(Dchanged[[d]],version = "newest")
+    mdcl <- mdcl %>%
+      glue::glue("## {Dchanged[[d]]$dataSetName} version {getVersion(Dchanged[[d]])}") %>%
+      str_c("\n\n") %>%
+      str_c(createSingleMarkdownChangelog(tcl)) %>%
+      str_c("\n\n")
+  }
+
+  mdcl <- stringr::str_replace_all(mdcl,pattern = "''",replacement = "NULL")
+  return(mdcl)
+}
+
+#create initial changelogs and datasetId
+
+
+
+#for(d in 1:length(Do)){
+
+
+
+#Dn <- D
+
+# for(d in 1:length(Do)){
+#   dsn <- Do[[d]]$dataSetName
+#   #cl <- createChangelog(Do[[dsn]],D[[dsn]])
+#   Dn[[dsn]] <- updateChangelog(D[[dsn]],changelog = tibble(type = "Setup",change = "Changelog created"),notes = "This marks the creation of the changelog, and marks the status of this dataset as of Temp12k version 1.0.1",version = "1.0.0")
+#   Dn[[dsn]]$datasetId <- createDatasetId()
+# }
+#
+#
+# for(dsn in 1:length(Dn)){
+#   if(is.null(Dn[[dsn]]$changelog)){
+#   Dn[[dsn]] <- updateChangelog(D[[dsn]],changelog = tibble(type = "Setup",change = "Changelog created"),notes = "This marks the creation of the changelog, and marks the status of this dataset as of mid 2020",version = "1.0.0")
+#   Dn[[dsn]]$datasetId <- createDatasetId()
+#   }
+# }
+#
+  #Dnn <- readLipd("~/Dropbox/lipdverse/database/")
+  Dn2 <- list()
+  #
+  bigCl <- tibble()
+  for(d in 1:length(Do)){
+   #url check
+    dsn <- Do[[d]]$dataSetName
+
+    print(d)
+    if(is.null(Dnn[[dsn]]$originalDataUrl) & !is.null(Do[[dsn]]$originalDataUrl)){
+      print("copying url")
+      Dnn[[dsn]]$originalDataUrl <- Do[[dsn]]$originalDataUrl
+    }
+
+    cl <- createChangelog(Do[[dsn]],Dnn[[dsn]])
+    if(nrow(cl) > 0){
+      bigCl <- bind_rows(bigCl,cl)
+    }
+
+   Dn2[[dsn]] <- updateChangelog(Dnn[[dsn]],changelog = cl)
+  }
+
+  allVers <- map_chr(Dn2,getVersion)
+  lastVers <- rep("1.0.0",times = length(Do))
+  diffVers <- which(allVers != lastVers)
+
+  Dchanged <- Dn2[diffVers]
+  test <- createProjectChangelogLong(Dchanged,"Temp12k-test","1.0.2")
+  write_file(test,"~/Desktop/detailedChangelog.Rmd")
+  rmarkdown::render("~/Desktop/detailedChangelog.Rmd")
+
+summarizeProjectChanges <- function(bigCl){
+
+  type_summ <- bigCl %>%
+    group_by(type) %>%
+    summarise(dataSetChanges = length(unique(dataSetName)),
+              totalChanges = n()) %>%
+    arrange(desc(dataSetChanges)) %>%
+    rename(`Type of change` = type,`Number of datasets with a change` = dataSetChanges,`Total changes` = totalChanges)
+
+  variable_summ <- bigCl %>%
+    group_by(variable) %>%
+    summarise(dataSetChanges = length(unique(dataSetName)),
+              totalChanges = n()) %>%
+    arrange(desc(dataSetChanges)) %>%
+    rename(`Changed metadata variable` = variable,`Number of datasets with a change` = dataSetChanges,`Total changes` = totalChanges)
+
+}
