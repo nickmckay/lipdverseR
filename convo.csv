@@ -129,3 +129,5 @@ pub3_citation,pub3_citation,character
 pub3_citeKey,pub3_citeKey,character
 pub3_doi,pub3_doi,character
 pub3_year,pub3_year,numeric
+temp12kUncertainty,paleoData_temperature12kUncertainty,character
+wNAmUncertainty,paleoData_wNAmUncertainty,character

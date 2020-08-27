@@ -240,8 +240,8 @@ flattenAuthors <- function(vec){
 getGoogleQCSheet <- function(qcSheetId){
   #download qc sheet
   setwd(here::here())
-  x <- googledrive::drive_get(googledrive::as_id(qcSheetId))
-  qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
+  x <- googledrive::drive_get(id = googledrive::as_id(qcSheetId))
+    qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
 
   #remove any special characters
   rosetta <- lipdverseR::rosettaStone()

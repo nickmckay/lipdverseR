@@ -9,6 +9,9 @@ hasChron(L)
 \arguments{
 \item{L}{}
 }
+\value{
+
+}
 \description{
 hasChron
 }

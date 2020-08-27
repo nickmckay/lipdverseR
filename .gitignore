@@ -4,4 +4,5 @@
 .Ruserdata
 .httr-oauth
 .DS_Store
+.secret
 lipdverseUpdate.R

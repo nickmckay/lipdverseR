@@ -9,6 +9,9 @@ hasChronEnsemble(L)
 \arguments{
 \item{L}{}
 }
+\value{
+
+}
 \description{
 has chron ensemble
 }

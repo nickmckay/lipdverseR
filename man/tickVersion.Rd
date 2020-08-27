@@ -4,9 +4,12 @@
 \alias{tickVersion}
 \title{Title}
 \usage{
-tickVersion(project, udsn,
+tickVersion(
+  project,
+  udsn,
   versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
-  googEmail = NULL)
+  googEmail = NULL
+)
 }
 \arguments{
 \item{project}{project name}

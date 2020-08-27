@@ -4,10 +4,18 @@
 \alias{writeCollapsibleChunks}
 \title{Build collapsible metadata for RMarkdown from a lipd TS object}
 \usage{
-writeCollapsibleChunks(thisRmd, thisTS = thisTS, name = "pub",
-  vars = c("author", "citeKey", "journal", "volume", "pages", "pubYear",
-  "title", "DOI"), tsi = 1, indent = 0, forceName = NULL,
-  dontClose = FALSE, open = FALSE)
+writeCollapsibleChunks(
+  thisRmd,
+  thisTS = thisTS,
+  name = "pub",
+  vars = c("author", "citeKey", "journal", "volume", "pages", "pubYear", "title",
+    "DOI"),
+  tsi = 1,
+  indent = 0,
+  forceName = NULL,
+  dontClose = FALSE,
+  open = FALSE
+)
 }
 \arguments{
 \item{thisRmd}{Rmd file to start with}

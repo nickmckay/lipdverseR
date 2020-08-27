@@ -4,8 +4,7 @@
 \alias{createProjectDashboards}
 \title{Create dahsboards for a project}
 \usage{
-createProjectDashboards(D, TS, webDirectory, project, version,
-  currentVersion = TRUE)
+createProjectDashboards(D, TS, webDirectory, project, version)
 }
 \arguments{
 \item{D}{list of lipd files}
@@ -19,6 +18,9 @@ createProjectDashboards(D, TS, webDirectory, project, version,
 \item{version}{project version}
 
 \item{currentVersion}{(TRUE or FALSE) copy to to currentVersion folder?}
+}
+\value{
+
 }
 \description{
 Create dahsboards for a project

@@ -4,9 +4,11 @@
 \alias{lastVersion}
 \title{Get the most recent version of the compilation (before updating)}
 \usage{
-lastVersion(project,
+lastVersion(
+  project,
   versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
-  googEmail = NULL)
+  googEmail = NULL
+)
 }
 \arguments{
 \item{project}{project name}
