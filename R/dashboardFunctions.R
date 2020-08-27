@@ -642,10 +642,10 @@ createProjectRmd <- function(webDirectory,project,version){
     str_c("[Report an issue (include project name)](https://github.com/nickmckay/LiPDverse/issues)",sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
-    str_c(str_c("[View changelog for ", project,"](../changelog.html)"),sep = "\n") %>%
+    str_c(str_c("[View changelog for ", project,"](../changelogSummary.html)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
-    str_c(str_c("[View detailed changelog for ", project," v",version,"](metadataChangelog.html)"),sep = "\n") %>%
+    str_c(str_c("[View detailed changelog for ", project," v",version,"](changelogDetail.html)"),sep = "\n") %>%
     str_c("\n") %>%
     str_c("            \n") %>%
     str_c("*** \n") %>%

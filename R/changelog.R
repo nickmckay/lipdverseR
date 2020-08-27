@@ -14,6 +14,16 @@ tibDiff <- function(tcol){
   }
 }
 
+#' Create a changelog by comparing two LiPD files
+#'
+#' @param Lold
+#' @param Lnew
+#' @param good.base
+#' @param exclude.paleo
+#' @param exclude.chron
+#'
+#' @return
+#' @export
 createChangelog <- function(Lold,
                             Lnew,
                             good.base = c("archiveType",
@@ -32,6 +42,8 @@ createChangelog <- function(Lold,
   ct <- c() #initialize change type
   cv <- c() #initialize change variable
   checked.base <- FALSE #initialize
+
+  lastVers <- getVersion(Lold)
 
   # Check for paleo and chronData -------------------------------------------
   #paleoData
@@ -493,15 +505,26 @@ createChangelog <- function(Lold,
   }
 
   if(length(cl)>0){
-  changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = Lnew$dataSetName)
+    changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = Lnew$dataSetName,lastVersion = lastVers)
   }else{
-    changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL)
+    changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL,lastVersion = NULL)
   }
 
   return(changelog)
 }
 
 
+#' Update the changelog entry in a LiPD file with new changes
+#'
+#' @param L
+#' @param changelog
+#' @param version
+#' @param notes
+#' @param curator
+#' @param timestamp
+#'
+#' @return
+#' @export
 updateChangelog <- function(L,
                             changelog,
                             version = NA,
@@ -512,6 +535,8 @@ updateChangelog <- function(L,
   if(nrow(changelog) == 0){#no changes, don't write
     return(L)
   }
+  #get the comparison version
+  lastVers <- changelog$lastVersion[1]
 
   #restrict to just type and change for now
   changelog <- dplyr::select(changelog,type,change)
@@ -533,7 +558,7 @@ updateChangelog <- function(L,
     lastVers <- max(as.numeric_version(purrr::map_chr(allChanges,getVers)))
     #check to make sure there is a previous version
     if(length(lastVers)==0){
-      stop("there don't seem to be any previous versions - version must be specified")
+      lastVers <- as.numeric_version("1.0.0") #we'll start here.
     }
     #initialize
     vers <- lastVers
@@ -566,6 +591,7 @@ updateChangelog <- function(L,
 
   if(!is.na(notes)){#add in notes if present
     thisChange <- list(version = as.character(vers),
+                       lastVersion = as.character(lastVers),
                        curator = curator,
                        timestamp = paste(timestamp,tz(timestamp)),
                        notes = notes,
@@ -573,6 +599,7 @@ updateChangelog <- function(L,
   }else{
     #create this instance of the changelog
     thisChange <- list(version = as.character(vers),
+                       lastVersion = as.character(lastVers),
                        curator = curator,
                        timestamp = paste(timestamp,tz(timestamp)),
                        changes =  changelist)
@@ -585,6 +612,13 @@ updateChangelog <- function(L,
 
 }
 
+#' Get one instance from a LiPD changelog
+#'
+#' @param L
+#' @param version
+#'
+#' @return
+#' @export
 getChangelog <- function(L,version = "newest"){
   allvers <- as.numeric_version(purrr::map_chr(L$changelog,"version"))
   if(length(allvers) == 0){
@@ -593,12 +627,15 @@ getChangelog <- function(L,version = "newest"){
 
   if(grepl(pattern = "new",version,ignore.case = T)){
     wv <- which(allvers == max(allvers))
+    if(length(wv)>1){wv <- 1}
   }else if(grepl(pattern = "previous",version,ignore.case = T)){
     wv <- which(allvers == sort(allvers,decreasing = T)[2])
   }else if(grepl(pattern = "old",version,ignore.case = T)){
     wv <- which(allvers == min(allvers))
+    if(length(wv)>1){wv <- length(allvers)}
   }else{#try to match the version
     wv <- which(allvers == as.numeric_version(version))
+    if(length(wv)>1){stop("multiple version matches")}
   }
 
   if(length(wv) == 0){
@@ -614,19 +651,35 @@ getChangelog <- function(L,version = "newest"){
 
 }
 
+#' Get the current version of a LiPD file from it's changelog
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 getVersion <- function(L){
   version <- as.numeric_version(purrr::map_chr(L$changelog,"version")) %>%
     max() %>%
     as.character()
 
   if(length(version)==0){
-    version <- "empty"
+    version <- "0.0.0"
   }
 
   return(version)
 }
 
 
+#' Create a Markdown representation of a LiPD changelog
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 createMarkdownChangelog <- function(L){
   cl <- L$changelog
   mdcl <- glue::glue("# Version history for {L$dataSetName}") %>%
@@ -643,9 +696,18 @@ createMarkdownChangelog <- function(L){
   return(mdcl)
 }
 
+#' Create markdown for a single entry
+#'
+#' @param scl
+#'
+#' @return
+#' @export
 createSingleMarkdownChangelog<- function(scl){
-  #seed version
-  clmd <- glue("### Version: {scl$version} \n") %>%
+  #don;t show fourth digit version
+  printvers <- as.numeric_version(scl$version)[1,1:3]
+  scl$version <- NULL
+
+  clmd <- glue("### Version: {printvers} \n") %>%
     str_c("\n")
 
   lev1 <- names(scl)
@@ -677,99 +739,149 @@ createSingleMarkdownChangelog<- function(scl){
 
 }
 
+#' Create a random Dataset ID for a LiPD dataset
+#'
+#' @return
+#' @export
 createDatasetId <- function(){
-  return(paste(sample(c(letters,LETTERS,0:9),size = 20,replace = T),collapse = ""))
+  return(paste(sample(c(letters,LETTERS,0:9),size = 20,replace = TRUE),collapse = ""))
 }
 
 
-#show the most recent changes of all files that changed
-createProjectChangelogLong <- function(Dchanged,proj,projVers){
-  mdcl <- glue::glue("# Detailed changelog for {proj} version {projVers}") %>%
-    str_c("\n\n")
+#' Create html changelog details and summaries for the differences between two projects
+#'
+#' @param Dold
+#' @param Dnew
+#' @param proj
+#' @param projVersOld
+#' @param projVersNew
+#' @param webDirectory
+#'
+#' @return
+#' @export
+createProjectChangelog <- function(Dold,
+                                   Dnew,
+                                   proj,
+                                   projVersOld,
+                                   projVersNew,
+                                   webDirectory = "~/GitHub/lipdverse/html",
+                                   notesTib = NA){
 
-  for(d in 1:length(Dchanged)){
-    tcl <- getChangelog(Dchanged[[d]],version = "newest")
-    mdcl <- mdcl %>%
-      glue::glue("## {Dchanged[[d]]$dataSetName} version {getVersion(Dchanged[[d]])}") %>%
+  #figure which are in each compilation
+  #old
+  TSo <- extractTs(Dold)
+  wicO <- inThisCompilation(TSo,proj,projVersOld)
+  dsnO <- pullTsVariable(TSo,"dataSetName")
+  dsIdO <- pullTsVariable(TSo,"datasetId")
+  icOi <- which(purrr::map_lgl(wicO,isTRUE))
+  dsIdIcO <- unique(dsIdO[icOi])
+  dsnIcO <- unique(dsnO[icOi])
+  dataVersOld <- map_chr(dsnIcO,~ getVersion(Dold[[.x]]))
+
+  oT <- tibble::tibble(datasetId = dsIdIcO,
+                       dataSetNameOld = dsnIcO,
+                       versionOld = dataVersOld)
+
+  #new
+  TSn <- extractTs(Dnew)
+  wicN <- inThisCompilation(TSn,proj,projVersNew)
+  dsnN <- pullTsVariable(TSn,"dataSetName")
+  dsIdN <- pullTsVariable(TSn,"datasetId")
+  icNi <- which(purrr::map_lgl(wicN,isTRUE))
+  dsIdIcN <- unique(dsIdN[icNi])
+  dsnIcN <- unique(dsnN[icNi])
+  dataVersNew <- map_chr(dsnIcN,~ getVersion(Dnew[[.x]]))
+
+  nT <- tibble::tibble(datasetId = dsIdIcN,
+                       dataSetNameNew = dsnIcN,
+                       versionNew = dataVersNew)
+
+
+  #combined tibble
+  cT <- dplyr::full_join(oT,nT,by = "datasetId")
+
+  #look for removed datasets
+  rT <- cT %>%
+    dplyr::filter(is.na(dataSetNameNew))
+
+  nRemoved <- nrow(rT)
+
+  #added
+  aT <- cT %>%
+    dplyr::filter(is.na(dataSetNameOld))
+
+  nAdded <- nrow(aT)
+
+  #go through and check out the differences
+  cTg <- cT %>%
+    dplyr::filter(!is.na(dataSetNameNew) & !is.na(dataSetNameOld)) %>% #only when both are in there
+    dplyr::filter(versionOld != versionNew) #and teh versions are different
+
+  if(!all(is.na(notesTib))){
+    notesTib <- dplyr::select(notesTib,datasetId,notes = changes)
+    cTg <- dplyr::left_join(cTg,notesTib,by = "datasetId")
+  }else{
+    cTg$notes <- NA
+  }
+
+  #setup big changelog
+  bigCl <- tibble::tibble()
+
+  Dchanged <- list()
+  bigCl <- tibble::tibble() #for later
+  if(nrow(cTg)>0){#then there are changes to record
+
+    for(i in 1:nrow(cTg)){
+      tdsid <- cTg$datasetId[i]
+      print(i)
+      cl <- createChangelog(Dold[[cTg$dataSetNameOld[i]]],Dnew[[cTg$dataSetNameNew[i]]])
+      if(nrow(cl) > 0){
+        bigCl <- dplyr::bind_rows(bigCl,cl)
+        Dchanged[[cTg$dataSetNameNew[i]]] <- updateChangelog(Dnew[[cTg$dataSetNameNew[i]]],
+                                                             changelog = cl,
+                                                             notes = cTg$notes[i],
+                                                             version = paste0(cTg$versionNew[i],".1000"))#force it to have the same version (with a .1000) for this purpose
+      }
+    }
+  }
+
+  #create a list that has what's needed for the markdown summary
+  mdList <- list(bigCl = bigCl,aT = aT,rT = rT,projVersOld = projVersOld, projVersNew = projVersNew, proj = proj)
+  #save a file of data needed for the summary
+  save(mdList,file = file.path(webDirectory,"markdownChangelogData.RData"))
+
+  #create the page
+  rmarkdown::render(input = file.path(webDirectory,"changelogSummarizer.Rmd"),
+                    output_file = file.path(webDirectory,proj,projVersNew,"changelogSummary.html"))
+
+
+  #create a detailed changelog
+  if(nrow(cTg)>0){#then there are changes to record
+
+    mdcl <- glue::glue("# **{proj}**: Detailed changes from version *{projVersOld}* to *{projVersNew}*") %>%
       str_c("\n\n") %>%
-      str_c(createSingleMarkdownChangelog(tcl)) %>%
+      str_c("A summary of changes made to the project is listed [here](changelogSummary.html)") %>%
       str_c("\n\n")
-  }
-
-  mdcl <- stringr::str_replace_all(mdcl,pattern = "''",replacement = "NULL")
-  return(mdcl)
-}
-
-#create initial changelogs and datasetId
-
-
-
-#for(d in 1:length(Do)){
-
-
-
-#Dn <- D
-
-# for(d in 1:length(Do)){
-#   dsn <- Do[[d]]$dataSetName
-#   #cl <- createChangelog(Do[[dsn]],D[[dsn]])
-#   Dn[[dsn]] <- updateChangelog(D[[dsn]],changelog = tibble(type = "Setup",change = "Changelog created"),notes = "This marks the creation of the changelog, and marks the status of this dataset as of Temp12k version 1.0.1",version = "1.0.0")
-#   Dn[[dsn]]$datasetId <- createDatasetId()
-# }
-#
-#
-# for(dsn in 1:length(Dn)){
-#   if(is.null(Dn[[dsn]]$changelog)){
-#   Dn[[dsn]] <- updateChangelog(D[[dsn]],changelog = tibble(type = "Setup",change = "Changelog created"),notes = "This marks the creation of the changelog, and marks the status of this dataset as of mid 2020",version = "1.0.0")
-#   Dn[[dsn]]$datasetId <- createDatasetId()
-#   }
-# }
-#
-  #Dnn <- readLipd("~/Dropbox/lipdverse/database/")
-  Dn2 <- list()
-  #
-  bigCl <- tibble()
-  for(d in 1:length(Do)){
-   #url check
-    dsn <- Do[[d]]$dataSetName
-
-    print(d)
-    if(is.null(Dnn[[dsn]]$originalDataUrl) & !is.null(Do[[dsn]]$originalDataUrl)){
-      print("copying url")
-      Dnn[[dsn]]$originalDataUrl <- Do[[dsn]]$originalDataUrl
+    for(d in 1:length(Dchanged)){
+      tcl <- getChangelog(Dchanged[[d]],version = "newest")
+      mdcl <- mdcl %>%
+        glue::glue("## {Dchanged[[d]]$dataSetName}") %>%
+        str_c("\n\n") %>%
+        str_c(createSingleMarkdownChangelog(tcl)) %>%
+        str_c("\n\n")
     }
 
-    cl <- createChangelog(Do[[dsn]],Dnn[[dsn]])
-    if(nrow(cl) > 0){
-      bigCl <- bind_rows(bigCl,cl)
-    }
+    mdcl <- stringr::str_replace_all(mdcl,pattern = "''",replacement = "NULL")
 
-   Dn2[[dsn]] <- updateChangelog(Dnn[[dsn]],changelog = cl)
+  }else{
+
+    mdcl <- glue::glue("## **{proj}** version *{projVersNew}* There do not appear to have been any changes to the datasets.")
   }
 
-  allVers <- map_chr(Dn2,getVersion)
-  lastVers <- rep("1.0.0",times = length(Do))
-  diffVers <- which(allVers != lastVers)
+  write_file(mdcl,file.path(webDirectory,"changelogDetail.Rmd"))
 
-  Dchanged <- Dn2[diffVers]
-  test <- createProjectChangelogLong(Dchanged,"Temp12k-test","1.0.2")
-  write_file(test,"~/Desktop/detailedChangelog.Rmd")
-  rmarkdown::render("~/Desktop/detailedChangelog.Rmd")
-
-summarizeProjectChanges <- function(bigCl){
-
-  type_summ <- bigCl %>%
-    group_by(type) %>%
-    summarise(dataSetChanges = length(unique(dataSetName)),
-              totalChanges = n()) %>%
-    arrange(desc(dataSetChanges)) %>%
-    rename(`Type of change` = type,`Number of datasets with a change` = dataSetChanges,`Total changes` = totalChanges)
-
-  variable_summ <- bigCl %>%
-    group_by(variable) %>%
-    summarise(dataSetChanges = length(unique(dataSetName)),
-              totalChanges = n()) %>%
-    arrange(desc(dataSetChanges)) %>%
-    rename(`Changed metadata variable` = variable,`Number of datasets with a change` = dataSetChanges,`Total changes` = totalChanges)
-
+  rmarkdown::render(file.path(webDirectory,"changelogDetail.Rmd"),
+                    output_file = file.path(webDirectory,proj,projVersNew,"changelogDetail.html"))
 }
+
+

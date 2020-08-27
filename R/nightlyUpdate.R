@@ -38,7 +38,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
   # lastMD5 <- directoryMD5(file.path(webDirectory,project,"current_version"))
   #
-  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
+  googlesheets4::sheets_auth(email = googEmail)
 
 
   #compare QC update times
@@ -88,9 +88,11 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 #' Title
 #'
 #' @param project project name
-#' @param udsn a vector of dataset names in the project
 #' @param versionMetaId ID of the versioning qc sheet
+#' @param qcIc dataSetNames in this compilation from teh QC sheet
+#' @param tsIc dataSetNames in the last compilation from the files
 #' @param googEmail google user ID
+#'
 #' @description Ticks the version of a database for you. Assumes that a change is necessary.
 #' @import googlesheets4
 #' @import magrittr
@@ -101,21 +103,21 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 #' @export
 #'
 #' @examples
-tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
+tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
+  googlesheets4::sheets_auth(email = googEmail)
 
   #get last versions udsn
   versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
-  lastUdsn <- versionSheet$dsns[1]
+  lastUdsn <- sort(tsIc)
 
   #and the new udsn
-  thisUdsn <- paste(unique(udsn),collapse = "|")
+  thisUdsn <- sort(qcIc)
 
-  if(lastUdsn==thisUdsn){
+  if(all(lastUdsn==thisUdsn)){
     #then tick metadata
     p <- versionSheet$publication[1]
     d <- versionSheet$dataset[1]
@@ -126,7 +128,7 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
     m <- 0
   }
 
-  newVers <- str_c(p,d,m,sep = "_")
+  newVers <- stringr::str_c(p,d,m,sep = "_")
   return(newVers)
 
 }
@@ -150,7 +152,7 @@ tickVersion <- function(project,udsn,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bp
 #' @examples
 lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
+  googlesheets4::sheets_auth(email = googEmail)
 
   #get last versions udsn
   versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
@@ -161,7 +163,7 @@ lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_
     d <- versionSheet$dataset[1]
     m <- versionSheet$metadata[1]
 
-  lastVers <- str_c(p,d,m,sep = "_")
+  lastVers <- stringr::str_c(p,d,m,sep = "_")
   return(lastVers)
 
 }
@@ -193,8 +195,8 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
 
   #authorize google
-  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
-  googledrive::drive_auth(email = googEmail,cache = TRUE)
+  googlesheets4::sheets_auth(email = googEmail,cache = ".secret")
+  googledrive::drive_auth(email = googEmail,cache = ".secret")
 
   if(is.na(projVersion)){#skip check if new version is specified
     #check if update is necessary
@@ -209,6 +211,8 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   #1. load in (potentially updated) files
   filesToUltimatelyDelete <- lipdR:::get_lipd_paths(lipdDir)
   D <- lipdR::readLipd(lipdDir)
+  Dloaded <- D#store for changelogging
+  dsidsOriginal <- tibble::tibble(datasetId = purrr::map_chr(D,"datasetId"),dataSetNameOrig = purrr::map_chr(D,"dataSetName"))
 
   #make sure that primary chronologies are named appropriately
   D <- purrr::map(D,renamePrimaryChron)
@@ -245,11 +249,45 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   TSid <- lipdR::pullTsVariable(TS,"paleoData_TSid")
   udsn <- unique(lipdR::pullTsVariable(TS,"dataSetName"))
 
+  #get the google qc sheet
+  qcB <- getGoogleQCSheet(qcId)
+
+  if(!any(names(qcB)=="changelogNotes")){
+    qcB$changelogNotes <- NA
+  }
+
+  #pull out changelog notes
+  clNotes <- qcB %>%
+    dplyr::select(dataSetName,TSid,changelogNotes) %>%
+    dplyr::filter(!is.na(changelogNotes)) %>%
+    dplyr::group_by(dataSetName) %>%
+    dplyr::summarize(changes = paste(paste(TSid,changelogNotes,sep = ": "),collapse = "; ")) %>%
+    dplyr::rename(dataSetNameOrig = dataSetName)
+
+  #then remove that column
+  qcB <- dplyr::select(qcB,-changelogNotes)
+
+  dsidsOriginal <- dsidsOriginal %>%
+    dplyr::left_join(clNotes,by = "dataSetNameOrig")
+
   #1b. New version name
   lastProjVersion <- lastVersion(project,googEmail = googEmail)
 
   if(is.na(projVersion)){
-    projVersion <- tickVersion(project,udsn,googEmail = googEmail)
+    #qc in compilation
+    qcIc <- qcB %>%
+      filter(inThisCompilation == TRUE) %>%
+      select(dataSetName) %>%
+      unique()
+
+    qcIc <- qcIc$dataSetName
+
+
+    tsIci <- which(purrr::map_lgl(inThisCompilation(TS,project,lastProjVersion),isTRUE))
+    tsIc <- unique(lipdR::pullTsVariable(TS,"dataSetName")[tsIci])
+
+
+    projVersion <- tickVersion(project,qcIc,tsIc,googEmail = googEmail)
   }
   #setup new version
   if(!dir.exists(file.path(webDirectory,project))){
@@ -291,8 +329,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
 
 
-  #now get the file
-  qcB <- getGoogleQCSheet(qcId)
+
   #check for duplicate TSids
   while(any(duplicated(qcB$TSid))){
     wd <- which(duplicated(qcB$TSid))
@@ -423,6 +460,30 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     nicdi <- which(!names(nD) %in% dsnInComp)
 
 
+
+    # update file and project changelogs
+    #first file changelogs
+    dsidsNew <- tibble(datasetId = map_chr(nD,"datasetId"),
+                       dataSetNameNew = map_chr(nD,"dataSetName"))
+
+    #figure out change notes
+
+    dsidKey <- dplyr::left_join(dsidsNew,dsidsOriginal,by = "datasetId")
+
+
+    #loop through DSid and create changelog (this is for files, not for the project)
+    for(dfi in 1:nrow(dsidKey)){
+      newName <- dsidKey$dataSetNameNew[dfi]
+      oldName <- dsidKey$dataSetNameOrig[dfi]
+
+      cl <- createChangelog(Dloaded[[oldName]],nD[[newName]])
+      nD[[newName]] <- updateChangelog(nD[[newName]],
+                                       changelog = cl,
+                                       notes = dsidKey$changes[dfi])
+    }
+
+
+
   #6 Update lipdverse
   if(updateWebpages){
 
@@ -449,9 +510,6 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
     createSerializations(D = DF,webDirectory,project,projVersion)
 
-    unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
-    dir.create(file.path(webDirectory,project,"current_version"))
-    file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version",.Platform$file.sep), recursive=FALSE,overwrite = TRUE)
 
     #add datasets not in compilation into DF
     if(length(nicdi)>0){
@@ -486,18 +544,18 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
 
   googledrive::drive_update(file = googledrive::as_id(lastUpdateId),media = file.path(webDirectory,project,"newLastUpdate.csv"))
-  newName <- str_c(project," v.",projVersion," QC sheet")
+  newName <- stringr::str_c(project," v.",projVersion," QC sheet")
 
 
   googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"newLastUpdate.csv"),name = newName)
-  googlesheets4::sheets_auth(email = googEmail,cache = TRUE)
 
-  #8 write lipd files
-  unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
+
+
+
+  #8 finalize and write lipd files
 
   DF <- purrr::map(DF,removeEmptyPubs)
 
-  writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE)
 
 
   #9 update the google version file
@@ -516,11 +574,11 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   newRow$versionCreated <- lubridate::now(tzone = "UTC")
   newRow$`zip MD5` <- directoryMD5(lipdDir)
 
-
-
   #check for differences in dsns
   dsndiff <- filter(versionDf,project == (!!project)) %>%
     filter(versionCreated == max(versionCreated))
+
+  lastVersionNumber <- paste(dsndiff[1,2:4],collapse = "_")
 
   oldDsns <- stringr::str_split(dsndiff$dsns,pattern = "[|]",simplify = T)
   newDsns <- stringr::str_split(newRow$dsns,pattern = "[|]",simplify = T)
@@ -532,9 +590,42 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
 
+
+  #write project changelog
+  Dpo <- readLipd(file.path(webDirectory,project,lastVersionNumber))
+  if(length(Dpo)>0){
+    createProjectChangelog(Dold = Dpo,
+                           Dnew = DF,
+                           proj = project,
+                           projVersOld = lastVersionNumber,
+                           projVersNew = projVersion,
+                           webDirectory = webDirectory,
+                           notesTib = dsidKey)
+
+  }else{#write empty changelog
+    cle <- glue::glue("## Changelog is empty - probably because there were no files in the web directory for {proj} version {lastVersionNumber}")
+    readr::write_file(cle,file.path(webDirectory,project,projVersion,"changelogEmpty.Rmd"))
+    rmarkdown::render(file.path(webDirectory,project,projVersion,"changelogEmpty.Rmd"),
+                      output_file = file.path(webDirectory,project,projVersion,"changelogSummary.html"))
+    rmarkdown::render(file.path(webDirectory,project,projVersion,"changelogEmpty.Rmd"),
+                      output_file = file.path(webDirectory,project,projVersion,"changelogDetail.html"))
+  }
+
   googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
+
+
   #give permissions back
   #drive_share(as_id(qcId),role = "writer", type = "user",emailAddress = "")
+  #update the files
+  unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
+
+  dir.create(file.path(webDirectory,project,"current_version"))
+
+  file.copy(file.path(webDirectory,project,projVersion,.Platform$file.sep), file.path(webDirectory,project,"current_version",.Platform$file.sep), recursive=TRUE,overwrite = TRUE)
+
+
+  unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
+  writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE)
 
 }
 
@@ -594,7 +685,7 @@ createSerializations <- function(D,webDirectory,project,projVersion,matlabUtilit
   readr::write_file(pyfile,path = file.path(webDirectory,project,projVersion,"createSerialization.py"))
 
   #run the file
-  system(str_c(python3Path, " ",file.path(webDirectory,project,projVersion,"createSerialization.py")))
+  system(stringr::str_c(python3Path, " ",file.path(webDirectory,project,projVersion,"createSerialization.py")))
 
 }
 
