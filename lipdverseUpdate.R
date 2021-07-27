@@ -13,7 +13,7 @@ setwd("/Users/nicholas/GitHub/lipdverseR/")
 
 #updateProject("Temp12k","/Users/nicholas/Dropbox/lipdverse/database/","/Users/nicholas/Dropbox/lipdverse/html/",qcId = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",lastUpdateId = "1qLRMCfDMbTyffJBWlIj3Zw4CAhJY2SECIY-ckcZ2Wak",googEmail = "nick.mckay2@gmail.com",updateWebpages = TRUE,standardizeTerms = TRUE)
 
-#updateProject("globalHolocene","/Users/npm4/Dropbox/HoloceneLiPDLibrary/masterDatabase/","/Users/npm4/GitHub/lipdverse/html/",qcId = "needANewOne",lastUpdateId = "needANewOne",googEmail = "nick.mckay2@gmail.com",updateWebpages = FALSE,standardizeTerms = FALSE)
+#updateProject("globalHolocene","/Users/npm4/Dropbox/lipdverse/database","/Users/npm4/GitHub/lipdverse/html/",qcId = "needANewOne",lastUpdateId = "needANewOne",googEmail = "nick.mckay2@gmail.com",updateWebpages = FALSE,standardizeTerms = FALSE)
 
 #updateProject("wNAm","/Users/nicholas/Dropbox/lipdverse/database","/Users/nicholas/Dropbox/lipdverse/html/",qcId = "166sUZ3rnjizRv2KCtcaaEj8NKIQgW6L1_z78VtNgOM4",lastUpdateId = "180Cig1Z2qFUKq-kVe0teQYkNrZps8yPZDgWu8xExciU",googEmail = "nick.mckay2@gmail.com",updateWebpages = TRUE,standardizeTerms = TRUE,projVersion = "1_0_0")
 
@@ -21,7 +21,6 @@ setwd("/Users/nicholas/GitHub/lipdverseR/")
 
 
 #updateProject("HoloceneAbruptChange","/Users/nicholas/Dropbox/lipdverse/database","/Users/nicholas/Dropbox/lipdverse/html/",qcId = "1u4vWrSsXv_6O16juL4WCgaJdFMxBqwerBi6BGhb3IgQ",lastUpdateId = "19yPTdIuwr-IN2YOAhqIsZliNF91OyGiKFTCKZw4MZXE",googEmail = "nick.mckay2@gmail.com",updateWebpages = FALSE,standardizeTerms = TRUE)
-
 # system("rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/HoloceneAbruptChange/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneAbruptChange")
 
 #updateProject("test","/Users/nicholas/Dropbox/lipdverse/testDatabase","/Users/nicholas/Dropbox/lipdverse/html/",qcId = "1P0_e-frsQIYFLjLBiJTfouEbdIhMW7UPfYGZBnaDep0",lastUpdateId = "1RbAs0qRWqvHCUfI7q_Er5UKAxRy-otRh7pdM2PKYCHw",googEmail = "nick.mckay2@gmail.com",updateWebpages = TRUE,standardizeTerms = FALSE)
