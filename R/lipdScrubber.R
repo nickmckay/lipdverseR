@@ -1,3 +1,23 @@
+#' clean original data url
+#'
+#' @param L
+#'
+#' @return L
+#' @export
+cleanOriginalDataUrl <- function(L){
+  if(is.null(L$originalDataUrl) & !is.null(L$originalDataUrl)){
+    L$originalDataUrl <- L$originalDataURL
+  }
+  L$originalDataURL <- NULL
+
+  #make sure that it's not a multi length character
+  if(length(L$originalDataUrl) > 1){
+    L$originalDataUrl <- paste(L$originalDataUrl,collapse = "; ")
+  }
+
+  return(L)
+}
+
 #' Remove empty tables
 #'
 #' @param L a Lipd file
@@ -312,7 +332,7 @@ removeFakeConflicts <- function(string){
 #' @param L
 #' @description standardizes the variable names in the chronData measurement tables.
 #' @return L
-#' @exportlibrar
+#' @export
 standardizeChronVariableNames <- function(L){
   if(is.null(L$chronData[[1]]$measurementTable[[1]])){
     return(L)

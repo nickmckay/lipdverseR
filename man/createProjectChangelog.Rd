@@ -10,7 +10,8 @@ createProjectChangelog(
   proj,
   projVersOld,
   projVersNew,
-  webDirectory = "~/GitHub/lipdverse/html"
+  webDirectory = "~/GitHub/lipdverse/html",
+  notesTib = NA
 )
 }
 \arguments{

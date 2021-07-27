@@ -159,9 +159,9 @@ lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
-    p <- versionSheet$publication[1]
-    d <- versionSheet$dataset[1]
-    m <- versionSheet$metadata[1]
+  p <- versionSheet$publication[1]
+  d <- versionSheet$dataset[1]
+  m <- versionSheet$metadata[1]
 
   lastVers <- stringr::str_c(p,d,m,sep = "_")
   return(lastVers)
@@ -183,7 +183,19 @@ lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_
 #' @import lipdR
 #' @import geoChronR
 #' @export
-updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL,updateWebpages = TRUE,standardizeTerms = TRUE,ageOrYear = "age",restrictWebpagesToCompilation = TRUE,projVersion = NA){
+updateProject <- function(project,
+                          lipdDir,
+                          webDirectory,
+                          qcId,
+                          lastUpdateId,
+                          versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
+                          googEmail = NULL,
+                          updateWebpages = TRUE,
+                          standardizeTerms = TRUE,
+                          ageOrYear = "age",
+                          restrictWebpagesToCompilation = TRUE,
+                          serialize = TRUE,
+                          projVersion = NA){
   #
   # project <- "globalHolocene"
   # lipdDir <- "~/Dropbox/HoloceneLiPDLibrary/masterDatabase/"
@@ -211,7 +223,17 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   #1. load in (potentially updated) files
   filesToUltimatelyDelete <- lipdR:::get_lipd_paths(lipdDir)
   D <- lipdR::readLipd(lipdDir)
+
+  #create datasetIds for records that don't have them
+  for(d in 1:length(D)){
+    if(is.null(D[[d]]$datasetId)){
+      D[[d]]$datasetId <- createDatasetId()
+    }
+  }
+
   Dloaded <- D#store for changelogging
+
+
   dsidsOriginal <- tibble::tibble(datasetId = purrr::map_chr(D,"datasetId"),dataSetNameOrig = purrr::map_chr(D,"dataSetName"))
 
   #make sure that primary chronologies are named appropriately
@@ -219,11 +241,12 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
 
   if(standardizeTerms){
+    D <- purrr::map(D,cleanOriginalDataUrl)
     D <- purrr::map(D,hasDepth)
     D <- purrr::map(D,nUniqueAges)
     D <- purrr::map(D,nGoodAges)
     D <- purrr::map(D,nOtherAges)
-   # D <- purrr::map(D,fixExcelIssues)
+    # D <- purrr::map(D,fixExcelIssues)
     D <- purrr::map(D,standardizeChronVariableNames)
   }
 
@@ -283,7 +306,8 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     qcIc <- qcIc$dataSetName
 
 
-    tsIci <- which(purrr::map_lgl(inThisCompilation(TS,project,lastProjVersion),isTRUE))
+    inLast <- inThisCompilation(TS,project,lastProjVersion)
+    tsIci <- which(purrr::map_lgl(inLast,isTRUE))
     tsIc <- unique(lipdR::pullTsVariable(TS,"dataSetName")[tsIci])
 
 
@@ -302,7 +326,7 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   #create TSids if needed
   et <- which(is.na(TSid))
   if(length(et) > 0){
-    ntsid <- purrr::map_chr(et,lipdR::createTSid)
+    ntsid <- unlist(purrr::rerun(length(et),lipdR::createTSid()))
     TSid[et] <- ntsid
     TS <- lipdR::pushTsVariable(TS,variable = "paleoData_TSid",vec = TSid)
   }
@@ -354,7 +378,10 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
 
   #qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC) Old way
-    #NPM: 2.20.20 added to help merge_data work as desired
+
+
+
+  #NPM: 2.20.20 added to help merge_data work as desired
 
   #shuffle in
   dBC <- dplyr::anti_join(qcB,qcC,by = "TSid")
@@ -384,16 +411,28 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   qcB[is.null(qcB) | qcB == ""] <- NA
   qcC[is.null(qcC) | qcC == ""] <- NA
 
+  #prep inThisCompilation
+  qcA$inThisCompilation[is.na(qcA$inThisCompilation)] <- FALSE
+  qcB$inThisCompilation[is.na(qcB$inThisCompilation)] <- FALSE
+  qcC$inThisCompilation[is.na(qcC$inThisCompilation)] <- FALSE
+
+  #find all TRUE in B and apply to C (since they should only be changed in B)
+  bf <- qcB %>%
+    filter(inThisCompilation == "TRUE")
+
+  cfi <- which(qcC$TSid %in% bf$TSid)
+  qcC$inThisCompilation[cfi] <- "TRUE"
+
   qc <- daff::merge_data(qcA,qcB,qcC)
 
   if(any(names(qc) == "inThisCompilation")){
-  #check for conflicts in "inThisCompilation"
-  #this is especially important when first starting this variable
-  #default to google qc sheet (qcB)
-  shouldBeTrue <- which(qc$inThisCompilation == "((( null ))) TRUE /// FALSE")
-  shouldBeFalse <- which(qc$inThisCompilation == "((( null ))) FALSE /// TRUE")
-  qc$inThisCompilation[shouldBeTrue] <- "TRUE"
-  qc$inThisCompilation[shouldBeFalse] <- "FALSE"
+    #check for conflicts in "inThisCompilation"
+    #this is especially important when first starting this variable
+    #default to google qc sheet (qcB)
+    shouldBeTrue <- which(qc$inThisCompilation == "((( null ))) TRUE /// FALSE")
+    shouldBeFalse <- which(qc$inThisCompilation == "((( null ))) FALSE /// TRUE")
+    qc$inThisCompilation[shouldBeTrue] <- "TRUE"
+    qc$inThisCompilation[shouldBeFalse] <- "FALSE"
   }
 
 
@@ -411,7 +450,6 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
 
   #5. Update sTS from merged qc
-  #problem is here
   nsTS <- updateFromQC(sTS,qc,project,projVersion)
 
   nTS <- combineInterpretationByScope(nsTS)
@@ -453,34 +491,34 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
   }
 
   #check to see which datasets are this compilation
-    itc <- inThisCompilation(nTS,project,projVersion)
-    ndsn <- pullTsVariable(nTS, "dataSetName")
-    dsnInComp <- ndsn[map_lgl(itc,isTRUE)]
-    dsnNotInComp <- ndsn[!map_lgl(itc,isTRUE)]
-    nicdi <- which(!names(nD) %in% dsnInComp)
+  itc <- inThisCompilation(nTS,project,projVersion)
+  ndsn <- pullTsVariable(nTS, "dataSetName")
+  dsnInComp <- ndsn[map_lgl(itc,isTRUE)]
+  dsnNotInComp <- ndsn[!map_lgl(itc,isTRUE)]
+  nicdi <- which(!names(nD) %in% dsnInComp)
 
 
 
-    # update file and project changelogs
-    #first file changelogs
-    dsidsNew <- tibble(datasetId = map_chr(nD,"datasetId"),
-                       dataSetNameNew = map_chr(nD,"dataSetName"))
+  # update file and project changelogs
+  #first file changelogs
+  dsidsNew <- tibble(datasetId = map_chr(nD,"datasetId"),
+                     dataSetNameNew = map_chr(nD,"dataSetName"))
 
-    #figure out change notes
+  #figure out change notes
 
-    dsidKey <- dplyr::left_join(dsidsNew,dsidsOriginal,by = "datasetId")
+  dsidKey <- dplyr::left_join(dsidsNew,dsidsOriginal,by = "datasetId")
 
 
-    #loop through DSid and create changelog (this is for files, not for the project)
-    for(dfi in 1:nrow(dsidKey)){
-      newName <- dsidKey$dataSetNameNew[dfi]
-      oldName <- dsidKey$dataSetNameOrig[dfi]
+  #loop through DSid and create changelog (this is for files, not for the project)
+  for(dfi in 1:nrow(dsidKey)){
+    newName <- dsidKey$dataSetNameNew[dfi]
+    oldName <- dsidKey$dataSetNameOrig[dfi]
 
-      cl <- createChangelog(Dloaded[[oldName]],nD[[newName]])
-      nD[[newName]] <- updateChangelog(nD[[newName]],
-                                       changelog = cl,
-                                       notes = dsidKey$changes[dfi])
-    }
+    cl <- createChangelog(Dloaded[[oldName]],nD[[newName]])
+    nD[[newName]] <- updateChangelog(nD[[newName]],
+                                     changelog = cl,
+                                     notes = dsidKey$changes[dfi])
+  }
 
 
 
@@ -507,9 +545,9 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     #load back in files
     DF <- readLipd(file.path(webDirectory,project,projVersion))
 
-
-    createSerializations(D = DF,webDirectory,project,projVersion)
-
+    if(serialize){
+      try(createSerializations(D = DF,webDirectory,project,projVersion),silent = TRUE)
+    }
 
     #add datasets not in compilation into DF
     if(length(nicdi)>0){
@@ -524,6 +562,9 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
     DF <- nD
   }
   TSF <- extractTs(DF)
+  #get most recent in compilations
+  mics <- getMostRecentInCompilationsTs(TSF)
+  TSF <- pushTsVariable(TSF,variable = "paleoData_mostRecentCompilations",vec = mics,createNew = TRUE)
   sTSF <- splitInterpretationByScope(TSF)
   qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear,compilationName = project,compVersion = projVersion)
 
@@ -613,6 +654,11 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 
   googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
 
+  #update datasetId information
+  updateDatasetIdDereferencer(DF,
+                              compilation = project,
+                              version = projVersion,
+                              dateUpdated = lubridate::today())
 
   #give permissions back
   #drive_share(as_id(qcId),role = "writer", type = "user",emailAddress = "")
@@ -645,7 +691,13 @@ updateProject <- function(project,lipdDir,webDirectory,qcId,lastUpdateId,version
 #' @description creates serialization; requires that Matlab and Python be installed, along with lipd utilities for those languages.
 #' @return
 #' @export
-createSerializations <- function(D,webDirectory,project,projVersion,matlabUtilitiesPath = "/Users/npm4/GitHub/LiPD-utilities/Matlab",matlabPath = "/Applications/MATLAB_R2015b.app/bin/matlab", python3Path="/Users/npm4/anaconda/bin/python3"){
+createSerializations <- function(D,
+                                 webDirectory,
+                                 project,
+                                 projVersion,
+                                 matlabUtilitiesPath = "/Users/nicholas/GitHub/LiPD-utilities/Matlab",
+                                 matlabPath = "/Applications/MATLAB_R2017a.app/bin/matlab",
+                                 python3Path="/Users/nicholas/miniconda2/envs/pyleoenv/bin"){
   #create serializations for web
   #R
 

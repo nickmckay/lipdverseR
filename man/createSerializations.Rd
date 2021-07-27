@@ -9,9 +9,9 @@ createSerializations(
   webDirectory,
   project,
   projVersion,
-  matlabUtilitiesPath = "/Users/npm4/GitHub/LiPD-utilities/Matlab",
-  matlabPath = "/Applications/MATLAB_R2015b.app/bin/matlab",
-  python3Path = "/Users/npm4/anaconda/bin/python3"
+  matlabUtilitiesPath = "/Users/nicholas/GitHub/LiPD-utilities/Matlab",
+  matlabPath = "/Applications/MATLAB_R2017a.app/bin/matlab",
+  python3Path = "/Users/nicholas/miniconda2/envs/pyleoenv/bin"
 )
 }
 \arguments{

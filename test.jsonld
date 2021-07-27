@@ -1,0 +1,31 @@
+{
+ "@context": {
+ "@vocab": "https://schema.org/" 
+},
+"@type": "Dataset",
+"additionalType": [
+ {
+ "@id": "http://linked.earth/ontology/core/1.2.0/index-en.html#Dataset" 
+} 
+],
+"@id": "http://lipdverse.org/Temp12k/1_0_2/AwengCo.Li.2017.html",
+"name": "AwengCo.Li.2017",
+"description": "This dataset from Aweng Co (Asia>Eastern Asia>China) is derived from a LakeSediment archive, and includes data on sampleID, temperature, tempErrorPlus, and uncertainty.temperature. The data are relevant to the time interval from 12100 to -46 (BP).",
+"distribution": [
+ {
+ "@type": "DataDownload",
+"contentUrl": "http://lipdverse.org/Temp12k/1_0_2/AwengCo.Li.2017.lpd",
+"encodingFormat": "application/zip",
+"datePublished": "2020-12-09" 
+} 
+],
+"url": "http://lipdverse.org/Temp12k/1_0_2/AwengCo.Li.2017.html",
+"version": "1.0.0",
+"keywords": [
+ "sampleID",
+"temperature",
+"tempErrorPlus",
+"uncertainty.temperature" 
+],
+"license": "CC-BY-4.0" 
+}

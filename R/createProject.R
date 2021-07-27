@@ -56,8 +56,12 @@ ui <- which(!duplicated(dsn))
 udsn <- dsn[ui]
 lat <- lipdR::pullTsVariable(TS,"geo_latitude")[ui]
 lon <- lipdR::pullTsVariable(TS,"geo_longitude")[ui]
-elev <- lipdR::pullTsVariable(TS,"geo_elevation")[ui]
+if("geo_elevation" %in% varNames){
+  elev <- lipdR::pullTsVariable(TS,"geo_elevation")[ui]
+}else{
+  elev <- matrix(NA, nrow = length(lat))
 
+}
 archiveType <- lipdR::pullTsVariable(TS,"archiveType")[ui]
 link <- paste0(udsn,".html") %>%
   str_replace_all("'","_")
@@ -86,12 +90,14 @@ rmarkdown::render(file.path(webDirectory,project,version,"index.Rmd"))
 tag <- readLines(file.path(webDirectory,"gatag.html"))
 
 message <- addGoogleTracker(file.path(webDirectory,project,version,"index.html"),tag)
+message2 <- addLogoLink(file.path(webDirectory,project,version,"index.html"),link = "http://lipdverse.org")
+
 
 failed = c()
 for(i in 1:nrow(map.meta)){
   print(i)
   fname <- str_replace_all(udsn[i],"'","_")
- # if(!file.exists(file.path(webDirectory,project,version,str_c(fname,".html")))){
+  if(!file.exists(file.path(webDirectory,project,version,str_c(fname,".html")))){
 
     thisTS <- TS[which(udsn[i] == dsn)]
 
@@ -116,7 +122,7 @@ for(i in 1:nrow(map.meta)){
     }
     writeLipd(D[[map.meta$dataSetName[i]]],path = file.path(webDirectory,project,version))
 
- # }
+  }
   #copy the lipd file if it's not already there
   # if(!file.exists(file.path(webDirectory,project,version,str_c(fname,".lpd")))){
   #   file.copy(from = str_c(lipdDir,fname,".lpd"),to = file.path(webDirectory,project))

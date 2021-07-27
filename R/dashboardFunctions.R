@@ -1,3 +1,29 @@
+#' add logo link
+#'
+#' @param htmlPath path to html file
+#' @param tag tag code, default is readLines(file.path(webDirectory,"gatag.html"))
+#'
+#' @return
+#' @export
+addLogoLink <- function(htmlPath, link = "http://lipdverse.org"){
+  html <- readLines(htmlPath)
+  hl <- stringr::str_locate(html,'<span class="navbar-logo pull-left">')
+
+  hr <- min(which(!is.na(hl[,1])))
+
+  if(is.finite(hr)){
+    tr <- hr+1
+    ntr <- stringr::str_c('<a href="',link,'">',html[tr],'</a>')
+    tt <- c(html[1:hr],ntr,html[-c(1:tr)])
+    writeLines(text = tt,con = htmlPath)
+    return(paste("Added lipdverse link",htmlPath))
+  }else{
+    return("no logo found")
+  }
+
+}
+
+
 #' add google tracking code
 #'
 #' @param htmlPath path to html file
@@ -313,7 +339,7 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
 
 
   ###########Write root metadata
-  thisRmd <- writeCollapsibleChunks(thisRmd,thisTS,name = "root",vars = c("archiveType", "originalDataURL","lipdVersion","dataContributor"),open = TRUE)
+  thisRmd <- writeCollapsibleChunks(thisRmd,thisTS,name = "root",vars = c("archiveType", "originalDataUrl","lipdVersion","dataContributor"),open = TRUE)
   ###########End root metadata
 
   ############WRITE PUB###############
@@ -387,8 +413,7 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
 
 
   thisVarNames <- sapply(thisTS,"[[","paleoData_variableName")
-  xcol <- which(thisVarNames %in% c("year","depth","age"))
-
+  xcol <- which(startsWith(thisVarNames,"age") | startsWith(thisVarNames,"depth") | startsWith(thisVarNames,"year"))
 
   plotOrder <-  seq(1, length(thisTS)) #generate a sequence to start with
   isxcol <- plotOrder %in% xcol
@@ -466,7 +491,7 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
 
 
     thisVarNames <- sapply(chronTS,"[[","chronData_variableName")
-    xcol <- which(thisVarNames %in% c("year","depth","age"))
+    xcol <- which(startsWith(thisVarNames,"age") | startsWith(thisVarNames,"depth") | startsWith(thisVarNames,"year"))
 
 
     plotOrderChron <-  seq(1, length(chronTS)) #generate a sequence to start with
@@ -550,7 +575,7 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
   thisVarNames <- sapply(thisTS,"[[","paleoData_variableName")
 
   #graph order
-  xcol <- which(thisVarNames %in% c("year","depth","age"))
+  xcol <- which(startsWith(thisVarNames,"age") | startsWith(thisVarNames,"depth") | startsWith(thisVarNames,"year"))
 
   if(any(plotOrder %in% xcol)){#then remove those
     graphOrder = plotOrder[-which(plotOrder %in% xcol)]

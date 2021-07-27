@@ -1,16 +1,47 @@
-tibDiff <- function(tcol){
-  #check for a change
-  old <- tcol[1]
-  new <- tcol[2]
-  if(is.na(old) | tolower(old) == "na" | is.null(old)){
-    old <- ""
-  }
-  if(is.na(new) | tolower(new) == "na" | is.null(new)){
-    new <- ""
+#' Initialize a changelog for a LiPD object
+#'
+#' @description This function will create a changelog for a file that doesn't already have one.
+#' @inheritParams updateChangelog
+#' @return A LiPD object with a changelog
+#' @export
+initializeChangelog <- function(L,
+                                notes = "Starting the changelog",
+                                curator = Sys.info()[["user"]],
+                                timestamp = lubridate::now(tzone = "UTC"),
+                                version = "1.0.0"){
+  if(!is.null(L$changelog)){#it already exists
+    warning("It looks like this file already has a change log, you probably want `updateChangelog()`. returning the input LiPD object without modification.")
+    return(L)
   }
 
-  if(old != new){
-    return(glue::glue("'{old}' has been replaced by '{new}'"))
+
+
+
+  thisChange <- list(version = as.character(version),
+                     curator = curator,
+                     timestamp = paste(timestamp,tz(timestamp)),
+                     notes  =  notes)
+
+  L$changelog <- list(thisChange)
+  return(L)
+}
+
+
+tibDiff <- function(tcol){
+  #check for a change
+  if(length(tcol) > 0){
+    old <- tcol[1]
+    new <- tcol[2]
+    if(is.na(old) | tolower(old) == "na" | is.null(old)){
+      old <- ""
+    }
+    if(is.na(new) | tolower(new) == "na" | is.null(new)){
+      new <- ""
+    }
+
+    if(old != new){
+      return(glue::glue("'{old}' has been replaced by '{new}'"))
+    }
   }
 }
 
@@ -120,7 +151,7 @@ createChangelog <- function(Lold,
       wa <- which(!tn$paleoData_TSid %in% to$paleoData_TSid)
       for(i in wa){
         cl <- c(cl,
-                glue("Column '{tn$paleoData_TSid[i]}', with variable name '{tn$paleoData_variableName[i]}', was added to the dataset")
+                glue::glue("Column '{tn$paleoData_TSid[i]}', with variable name '{tn$paleoData_variableName[i]}', was added to the dataset")
         )
         ct <- c(ct,"PaleoData table")
         cv <- c(cv,NA)
@@ -134,7 +165,7 @@ createChangelog <- function(Lold,
       wr <- which(!to$paleoData_TSid %in% tn$paleoData_TSid)
       for(i in wr){
         cl <- c(cl,
-                glue("Column '{to$paleoData_TSid[i]}', with variable name '{to$paleoData_variableName[i]}', was removed from the dataset")
+                 glue::glue("Column '{to$paleoData_TSid[i]}', with variable name '{to$paleoData_variableName[i]}', was removed from the dataset")
         )
         ct <- c(ct,"PaleoData table")
         cv <- c(cv,NA)
@@ -144,10 +175,19 @@ createChangelog <- function(Lold,
       to <- to[-wr,]
     }
 
+
+
     #make sure there are some rows remaining
-    if(nrow(tn) < 2 | nrow(to) < 2){
-      stop("there are 0 or 1 matching TSids in the paleoData. You probably entered an incorrect file")
+    if(nrow(tn) == 1 | nrow(to) == 1){
+      warning(glue::glue("{Lnew$dataSetName}: there is only 1 matching TSids in the paleoData. This is not typical."))
     }
+
+
+    #make sure there are some rows remaining
+    if(nrow(tn) < 1 | nrow(to) < 1){
+      stop(glue::glue("{Lnew$dataSetName}: there is no matching TSids in the paleoData. You probably entered an incorrect file"))
+    }
+
 
     #check to make sure that the TSids and number of rows are identical
     tn <- tn %>% dplyr::arrange(paleoData_TSid)
@@ -329,7 +369,7 @@ createChangelog <- function(Lold,
       wa <- which(!tn$chronData_TSid %in% to$chronData_TSid)
       for(i in wa){
         cl <- c(cl,
-                glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
+                 glue::glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
         )
         ct <- c(ct,"ChronData table")
         cv <- c(cv,NA)
@@ -344,7 +384,7 @@ createChangelog <- function(Lold,
       wr <- which(!to$chronData_TSid %in% tn$chronData_TSid)
       for(i in wr){
         cl <- c(cl,
-                glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
+                 glue::glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
         )
         ct <- c(ct,"ChronData table")
         cv <- c(cv,NA)
@@ -671,6 +711,37 @@ getVersion <- function(L){
   return(version)
 }
 
+#' Get the timestamp frmo current version of a LiPD file from it's changelog
+#'
+#' @param L
+#'
+#' @return
+#' @export
+getTimestamp <- function(L){
+  timestamp <- lubridate::as_datetime(purrr::map_chr(L$changelog,"timestamp")) %>%
+    max() %>%
+    as.character()
+
+  if(length(timestamp)==0){
+    timestamp <- "none"
+  }
+
+  return(timestamp)
+}
+
+#' write dataset version to a variable in the LiPD file
+#'
+#' @param L A LiPD file
+#'
+#' @return A LiPD file
+#' @export
+writeVersionToRoot <- function(L){
+  L$datasetVersion <- getVersion(L)
+  L$datasetTimestamp <- getTimestamp(L)
+
+  return(L)
+}
+
 
 #' Create a Markdown representation of a LiPD changelog
 #'
@@ -707,7 +778,7 @@ createSingleMarkdownChangelog<- function(scl){
   printvers <- as.numeric_version(scl$version)[1,1:3]
   scl$version <- NULL
 
-  clmd <- glue("### Version: {printvers} \n") %>%
+  clmd <-  glue::glue("### Version: {printvers} \n") %>%
     str_c("\n")
 
   lev1 <- names(scl)
@@ -715,20 +786,20 @@ createSingleMarkdownChangelog<- function(scl){
     tb <- lev1[l1]
     #do level one changes
     if(is.character(scl[[l1]])){#then write the bullets
-      clmd <- str_c(clmd,glue("* *{lev1[l1]}*: {scl[[l1]]}\n")) %>%
+      clmd <- str_c(clmd, glue::glue("* *{lev1[l1]}*: {scl[[l1]]}\n")) %>%
         str_c("\n")
     }else{
-      clmd <- str_c(clmd,glue("* *{lev1[l1]}*:\n")) %>%
+      clmd <- str_c(clmd, glue::glue("* *{lev1[l1]}*:\n")) %>%
         str_c("\n")
 
       lev2 <- scl[[l1]]
 
       for(l2 in 1:length(lev2)){
         thisType <- names(lev2)[l2]
-        clmd <- str_c(clmd,glue("\t + *{thisType}*:\n",.trim = FALSE))
+        clmd <- str_c(clmd, glue::glue("\t + *{thisType}*:\n",.trim = FALSE))
         theseChanges <- lev2[[l2]]
         for(t in 1:length(theseChanges)){
-          clmd <- str_c(clmd,glue("\t \t - {theseChanges[t]}\n",.trim = FALSE))
+          clmd <- str_c(clmd, glue::glue("\t \t - {theseChanges[t]}\n",.trim = FALSE))
         }
         clmd <- str_c(clmd,"\n")
       }
@@ -771,8 +842,20 @@ createProjectChangelog <- function(Dold,
   #old
   TSo <- extractTs(Dold)
   wicO <- inThisCompilation(TSo,proj,projVersOld)
-  dsnO <- pullTsVariable(TSo,"dataSetName")
-  dsIdO <- pullTsVariable(TSo,"datasetId")
+  dsnO <- pullTsVariable(TSo,"dataSetName",strict.search = TRUE)
+  allNames <- unique(unlist(sapply(TSo,names)))
+  if(!"datasetId"  %in% allNames){
+    TSn <- extractTs(Dnew)
+    wicN <- inThisCompilation(TSn,proj,projVersNew)
+    dsnN <- pullTsVariable(TSn,"dataSetName",strict.search = TRUE)
+    dsIdN <- pullTsVariable(TSn,"datasetId",strict.search = TRUE)
+    mdfO <- tibble::tibble(dsn = dsnO)
+    mdfN <- tibble::tibble(dsn = dsnN,dsid = dsIdN)
+    mdf <- dplyr::left_join(mdfO,dplyr::distinct(mdfN),by = "dsn")
+    dsIdO <- mdf$dsid
+  }else{
+    dsIdO <- pullTsVariable(TSo,"datasetId",strict.search = TRUE)
+  }
   icOi <- which(purrr::map_lgl(wicO,isTRUE))
   dsIdIcO <- unique(dsIdO[icOi])
   dsnIcO <- unique(dsnO[icOi])
@@ -785,8 +868,8 @@ createProjectChangelog <- function(Dold,
   #new
   TSn <- extractTs(Dnew)
   wicN <- inThisCompilation(TSn,proj,projVersNew)
-  dsnN <- pullTsVariable(TSn,"dataSetName")
-  dsIdN <- pullTsVariable(TSn,"datasetId")
+  dsnN <- pullTsVariable(TSn,"dataSetName",strict.search = TRUE)
+  dsIdN <- pullTsVariable(TSn,"datasetId",strict.search = TRUE)
   icNi <- which(purrr::map_lgl(wicN,isTRUE))
   dsIdIcN <- unique(dsIdN[icNi])
   dsnIcN <- unique(dsnN[icNi])
@@ -859,6 +942,8 @@ createProjectChangelog <- function(Dold,
   if(nrow(cTg)>0){#then there are changes to record
 
     mdcl <- glue::glue("# **{proj}**: Detailed changes from version *{projVersOld}* to *{projVersNew}*") %>%
+      str_c("\n\n") %>%
+      str_c(glue::glue("#### **{date()}**")) %>%
       str_c("\n\n") %>%
       str_c("A summary of changes made to the project is listed [here](changelogSummary.html)") %>%
       str_c("\n\n")
