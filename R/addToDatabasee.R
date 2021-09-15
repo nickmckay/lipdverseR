@@ -14,7 +14,9 @@ createDatabaseReference <- function(D){
 
   if(any(duplicated(ref$datasetId))){
     id <- which(duplicated(ref$datasetId))
-    print(ref$dataSetName[id])
+    for(idi in id){
+      print(ref$dataSetName[ref$datasetId == ref$datasetId[idi]])
+    }
     stop(glue::glue("Oh no. There are duplicated datasetIds in the database"))
   }
   if(any(duplicated(ref$dataSetNames))){

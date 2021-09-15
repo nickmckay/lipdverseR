@@ -165,7 +165,7 @@ createChangelog <- function(Lold,
       wr <- which(!to$paleoData_TSid %in% tn$paleoData_TSid)
       for(i in wr){
         cl <- c(cl,
-                 glue::glue("Column '{to$paleoData_TSid[i]}', with variable name '{to$paleoData_variableName[i]}', was removed from the dataset")
+                glue::glue("Column '{to$paleoData_TSid[i]}', with variable name '{to$paleoData_variableName[i]}', was removed from the dataset")
         )
         ct <- c(ct,"PaleoData table")
         cv <- c(cv,NA)
@@ -185,9 +185,63 @@ createChangelog <- function(Lold,
 
     #make sure there are some rows remaining
     if(nrow(tn) < 1 | nrow(to) < 1){
-      stop(glue::glue("{Lnew$dataSetName}: there is no matching TSids in the paleoData. You probably entered an incorrect file"))
-    }
+      print(glue::glue("{Lnew$dataSetName}: there is no matching TSids in the paleoData. You probably entered an incorrect file or fixed some TSid issues"))
+      print("trying by variableName")
+      #get tibbles
+      to <- Lold %>%
+        extractTs(mode = "paleo") %>%
+        ts2tibble() %>%
+        dplyr::arrange(paleoData_variableName)
 
+      tn <- Lnew %>%
+        extractTs(mode = "paleo") %>%
+        ts2tibble() %>%
+        dplyr::arrange(paleoData_variableName)
+
+      #check TSids are unique
+      if(any(duplicated(to$paleoData_variableName))){
+        stop("the original dataset has duplicated paleo variableName")
+      }
+      if(any(duplicated(tn$paleoData_variableName))){
+        stop("the new dataset has duplicated variableName")
+      }
+
+
+      # Check for added/removed columns -----------------------------------------
+
+      #check for added columns
+      if(any(!tn$paleoData_variableName %in% to$paleoData_variableName)){#then one was added
+        wa <- which(!tn$paleoData_variableName %in% to$paleoData_variableName)
+        for(i in wa){
+          cl <- c(cl,
+                  glue::glue("Column '{tn$paleoData_TSid[i]}', with variable name '{tn$paleoData_variableName[i]}', was added to the dataset")
+          )
+          ct <- c(ct,"paleoData table")
+          cv <- c(cv,NA)
+
+        }
+        #then remove them - we won't describe the details of added columns
+        tn <- tn[-wa,]
+      }
+
+      #check for removed columns
+      if(any(!to$paleoData_variableName %in% tn$paleoData_variableName)){#then one was added
+        wr <- which(!to$paleoData_variableName %in% tn$paleoData_variableName)
+        for(i in wr){
+          cl <- c(cl,
+                  glue::glue("Column '{to$paleoData_TSid[i]}', with variable name '{to$paleoData_variableName[i]}', was removed from the dataset")
+          )
+          ct <- c(ct,"paleoData table")
+          cv <- c(cv,NA)
+
+        }
+        #then remove them - this should force the datasets to always have the same number of columns
+        to <- to[-wr,]
+      }
+      if(nrow(tn) < 1 | nrow(to) < 1){
+        stop("there are 0 or 1 matching TSids AND variableNames in the paleoData. You probably entered an incorrect file, or fixed a TSid problem")
+      }
+    }
 
     #check to make sure that the TSids and number of rows are identical
     tn <- tn %>% dplyr::arrange(paleoData_TSid)
@@ -369,7 +423,7 @@ createChangelog <- function(Lold,
       wa <- which(!tn$chronData_TSid %in% to$chronData_TSid)
       for(i in wa){
         cl <- c(cl,
-                 glue::glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
+                glue::glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
         )
         ct <- c(ct,"ChronData table")
         cv <- c(cv,NA)
@@ -384,7 +438,7 @@ createChangelog <- function(Lold,
       wr <- which(!to$chronData_TSid %in% tn$chronData_TSid)
       for(i in wr){
         cl <- c(cl,
-                 glue::glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
+                glue::glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
         )
         ct <- c(ct,"ChronData table")
         cv <- c(cv,NA)
@@ -396,7 +450,62 @@ createChangelog <- function(Lold,
 
     #make sure there are some rows remaining
     if(nrow(tn) < 1 | nrow(to) < 1){
-      stop("there are 0 or 1 matching TSids in the chronData. You probably entered an incorrect file")
+      print("there are 0 or 1 matching TSids in the chronData. You probably entered an incorrect file, or fixed a TSid problem")
+      print("trying by variableName")
+      #get tibbles
+      to <- Lold %>%
+        extractTs(mode = "chron") %>%
+        ts2tibble() %>%
+        dplyr::arrange(chronData_variableName)
+
+      tn <- Lnew %>%
+        extractTs(mode = "chron") %>%
+        ts2tibble() %>%
+        dplyr::arrange(chronData_variableName)
+
+      #check TSids are unique
+      if(any(duplicated(to$chronData_variableName))){
+        stop("the original dataset has duplicated chron variableName")
+      }
+      if(any(duplicated(tn$chronData_variableName))){
+        stop("the new dataset has duplicated variableName")
+      }
+
+
+      # Check for added/removed columns -----------------------------------------
+
+      #check for added columns
+      if(any(!tn$chronData_variableName %in% to$chronData_variableName)){#then one was added
+        wa <- which(!tn$chronData_variableName %in% to$chronData_variableName)
+        for(i in wa){
+          cl <- c(cl,
+                  glue::glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
+          )
+          ct <- c(ct,"ChronData table")
+          cv <- c(cv,NA)
+
+        }
+        #then remove them - we won't describe the details of added columns
+        tn <- tn[-wa,]
+      }
+
+      #check for removed columns
+      if(any(!to$chronData_variableName %in% tn$chronData_variableName)){#then one was added
+        wr <- which(!to$chronData_variableName %in% tn$chronData_variableName)
+        for(i in wr){
+          cl <- c(cl,
+                  glue::glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
+          )
+          ct <- c(ct,"ChronData table")
+          cv <- c(cv,NA)
+
+        }
+        #then remove them - this should force the datasets to always have the same number of columns
+        to <- to[-wr,]
+      }
+      if(nrow(tn) < 1 | nrow(to) < 1){
+        stop("there are 0 or 1 matching TSids AND variableNames in the chronData. You probably entered an incorrect file, or fixed a TSid problem")
+      }
     }
 
     #check to make sure that the TSids and number of rows are identical
