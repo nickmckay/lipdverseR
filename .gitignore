@@ -4,7 +4,6 @@
 .Ruserdata
 .httr-oauth
 .DS_Store
-convo.csv
-convo.csv
-googleQC.csv
 *.csv
+.secret
+lipdverseUpdate.R

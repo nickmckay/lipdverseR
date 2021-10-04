@@ -9,6 +9,9 @@ renamePrimaryChron(L, avar = "age")
 \arguments{
 \item{avar}{}
 }
+\value{
+
+}
 \description{
 rename primary chronology
 }

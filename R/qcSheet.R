@@ -1,3 +1,76 @@
+#get most recent compiltations
+
+
+#' Get most recent compilations and versions
+#'
+#' @param TS
+#' @import purrr stringr lipdR
+#' @return a character vector of compilations and versions
+#' @export
+getMostRecentInCompilationsTs <- function(TS){
+
+  allNames <- sort(unique(unlist(sapply(TS,names))))#get all names in TS
+  #get all the names of the compilations
+  allComps <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationName",allNames)]
+  allVers <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationVersion",allNames)]
+
+
+  allCompNames <- vector(mode = "list",length=length(allComps))
+  allCompVersions <- vector(mode = "list",length=length(allComps))
+
+
+  #get all the data
+  for(i in 1:length(allComps)){
+    allCompNames[[i]] <- lipdR::pullTsVariable(TS,allComps[i])
+    allCompVersions[[i]] <- lipdR::pullTsVariable(TS,allVers[i])
+  }
+
+  #get all comps per entry
+  getAllComps <- function(i){
+    ac <- purrr::map_chr(seq_along(allCompNames),~purrr::pluck(allCompNames,.x,i))
+    return(ac[!is.na(ac)])
+  }
+
+  allComps <- purrr::map(seq_along(TS),getAllComps)
+
+  #prep output
+  out <- tibble::tibble(compilation = NA, version = NA)
+  if(length(allComps) == 0){
+    return(out)
+  }
+
+  #get max version given comp
+  getMaxVers <- function(i,comp){
+    ac <- purrr::map_chr(seq_along(allCompNames),~purrr::pluck(allCompNames,.x,i))
+    ind <- which(ac == comp)
+    if(length(ind)==0){
+      return(NA)
+    }else if(length(ind)>1){stop("multiple comp matches")}
+    allVers <- purrr::pluck(allCompVersions,ind,i)
+    maxNumeric <- max(as.numeric_version(stringr::str_replace_all(allVers,pattern = "_",replacement = ".")))
+    maxUnd <- stringr::str_replace_all(as.character(maxNumeric),pattern = "[.]","_")
+    return(maxUnd)
+  }
+
+  compVersString <- function(i){
+    thisComp <- allComps[[i]]
+    if(length(thisComp) == 0){
+      return(NA)
+    }
+    cvs <- c()
+    for(j in 1:length(thisComp)){
+      cvs[j] <- stringr::str_c(thisComp[j],"-", getMaxVers(i,thisComp[j]))
+    }
+    return(paste(cvs,collapse = ", "))
+  }
+
+  mostRecentCompilation <- purrr::map_chr(seq_along(TS),compVersString)
+
+  return(mostRecentCompilation)
+}
+
+
+
 #' Get the number of unique 14C ages in a Lipd file
 #'
 #' @param L
@@ -83,19 +156,33 @@ nGoodAges <- function(L,maxAge = 12000,c14names = c("age")){
       out <- "no age_type column"
     }
     ai <- which(vn == "age")
+
     if(length(ai)==0){
       out <- "no age column"
     }
 
-    at <- cts[[ati[1]]]$chronData_values
     a <- cts[[ai[1]]]$chronData_values
+
+    #look for a column of 14C ages
+    a14ci <- which(tolower(vn) == "age14c")
+    if(length(a14ci)>0){
+      #then combine with ages
+      a14c <- cts[[a14ci[1]]]$chronData_values
+      ba <- which(!is.finite(a))
+      if(is.null(a)){#no "age" column
+        a <- a14c
+        out <- "no age column, but there is a 14C column"
+      }
+      a[ba] <- a14c[ba]
+    }
+
+    at <- cts[[ati[1]]]$chronData_values
 
 
 
 
     #find good age types
-    ind <- which(grepl("14c",at, ignore.case = TRUE) |
-                   grepl("c14",at, ignore.case = TRUE) |
+    ind <- which(grepl("14",at, ignore.case = TRUE) |
                    grepl("u/th",at, ignore.case = TRUE) |
                    grepl("tephra",at, ignore.case = TRUE)
     )
@@ -185,7 +272,23 @@ flattenAuthors <- function(vec){
       if(is.character(tl)){
         nvec[i] <- tl
       }else if(is.list(tl)){
-        nvec[i] <- paste(sapply(tl,"[[","name"),collapse = " ; ")
+        if(is.null(names(tl))){
+          tl <- tl[[1]]
+        }
+
+        if(length(tl) == 1){
+          fnvec <- tl$name
+          if(is.null(fnvec)){
+            nvec[i] <- NA
+          }else{
+            nvec[i] <- tl$name
+          }
+        }else if(length(tl) > 1){
+          nvec[i] <- paste(sapply(tl,"[[","name"),collapse = " ; ")
+        }else{
+          nvec[i] <- NA
+        }
+
       }
 
     }
@@ -210,8 +313,8 @@ flattenAuthors <- function(vec){
 getGoogleQCSheet <- function(qcSheetId){
   #download qc sheet
   setwd(here::here())
-  x <- googledrive::drive_get(googledrive::as_id(qcSheetId))
-  qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
+  x <- googledrive::drive_get(id = googledrive::as_id(qcSheetId))
+    qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
 
   #remove any special characters
   rosetta <- lipdverseR::rosettaStone()
@@ -238,14 +341,12 @@ getGoogleQCSheet <- function(qcSheetId){
 #' @return an updated sTS
 #'
 
-updateFromQC <- function(sTS,qcs){
+updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
 
   #setup reporting
   report <- c()
   reportY <- c()
   noMatch <- c()
-
-
 
   #download name conversion
   convo <- googledrive::as_id("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w") %>%
@@ -261,7 +362,7 @@ updateFromQC <- function(sTS,qcs){
   for(i in 1:length(qcNames)){
     ind <- which(convo$qcSheetName %in% qcNames[i])
     if(length(ind)==0){
-      print(qcNames[i])
+      print(glue("No match in convoR for {qcNames[i]}"))
     }else if(length(ind)==1){
       tsNames[i] <- convo$tsName[ind]
     }else{
@@ -298,7 +399,7 @@ updateFromQC <- function(sTS,qcs){
   dsn <- sapply(sTS,"[[","dataSetName")
 
   #determine order to go through TS, want to go backwards through the QC sheet so apply2all changes at the top are applied last
-  qcTSid <- qcs$TSid
+  qcTSid <- as.character(qcs$TSid)
   extraTSid <- setdiff(TSid,qcTSid)
 
   TSidList <- c(extraTSid, qcTSid[rev(seq_along(qcTSid))])
@@ -337,6 +438,8 @@ updateFromQC <- function(sTS,qcs){
               varFun <- as.character
             }else if(varType == "numeric"){
               varFun <- as.numeric
+            }else if(varType == "inCompilation"){
+              varFun <- as.logical
             }else if(varType == "boolean"){
               varFun <- as.logical
             }else if(varType == "author"){
@@ -376,15 +479,47 @@ updateFromQC <- function(sTS,qcs){
                 }
               }
             }else{#then just for this one timeseries
-              newTS[[i]][thisTSnames[j]] <- varFun(qcs[qci,rn])
-            }
+              if(varType == "inCompilation"){
+                inThisComp <- varFun(qcs[qci,rn])
 
+                if(isTRUE(inThisComp)){#then we need to add it to the compilation
+                  #get all the names of the compilations
+                  allComps <- thisTSnames[grepl(pattern = "inCompilationBeta[0-9]+_compilationName",thisTSnames)]
+                  getCompNames <- function(x,y){y[[x]]}
+                  compNames <- purrr::map_chr(allComps,getCompNames,newTS[[i]])
+                  #and the numbers
+                  compNum <- stringr::str_extract(allComps,pattern = "[0-9]+")
+                  #see if the name matches any existing compilatinos
+                  compInd <- which(compilationName == compNames)
+                  if(length(compInd)==1){#1 match!
+                    #what compilation number?
+                    thisCompNum <- compNum[compInd]
+                    #append this version
+                    newTS[[i]][[str_c("inCompilationBeta",thisCompNum,"_compilationVersion")]] <- c(newTS[[i]][[str_c("inCompilationBeta",thisCompNum,"_compilationVersion")]],newVersion)
+                  }else if(length(compInd)>1){#Oh no
+                    stop("cant have two compilation matches")
+                  }else{#must be a new compilation!
+                    if(length(compNames)==0){#no comps in this TS yet
+                      compNum <- 0
+                      }
+                    #what compilation number?
+                    thisCompNum <- max(as.numeric(compNum))+1
+                    #append this version
+                    newTS[[i]][str_c("inCompilationBeta",thisCompNum,"_compilationName")] <- c(compilationName)
+                    newTS[[i]][str_c("inCompilationBeta",thisCompNum,"_compilationVersion")] <- c(newVersion)
+                  }
+                }
+              }else{#everything else
+                newTS[[i]][thisTSnames[j]] <- varFun(qcs[qci,rn])
+
+            }
+            if(length(rn) > 1){
+              stop("there shouldn't be multiple matches in ts names")
+            }
           }
-          if(length(rn) > 1){
-            stop("there shouldn't be multiple matches in ts names")
-          }
-        }
-      }#end loop through variables and force an update
+        }#end loop through variables and force an update
+      }
+      }
     }
   }
   write_csv(x = as.data.frame(report),path = "~/GitHub/lipdverse/updateQc_log.csv")
@@ -404,24 +539,30 @@ updateFromQC <- function(sTS,qcs){
 #' @import dplyr
 #' @import geoChronR
 #' @return a data.frame QC sheet
-createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),to.omit.specific = c("yr"),ageOrYear = "age"){
+createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.specific = c("depth","yr"),ageOrYear = "age",compilationName = NA,compVersion = NA){
   #setup reporting
   report <- c()
   noMatch <- c()
   #
   #download qc sheet template
   setwd(here::here())
-  x <- drive_get(as_id(templateId))
-  qc <- drive_download(x,path = here::here("template.csv"),type = "csv",overwrite = T)
-  qcs <- read_csv(here::here("template.csv"),guess_max = Inf)
+  # x <- googledrive::drive_get(googledrive::as_id(templateId))
+  # qc <- googledrive::drive_download(x,path = here::here("template.csv"),type = "csv",overwrite = T)
+  # qcs <- readr::read_csv(here::here("template.csv"),guess_max = 10^4)
+
+  qcs <- googlesheets4::read_sheet(templateId,range = "1:2")
+
 
   #download name conversion
-  convo <- as_id("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w") %>%
-    drive_get() %>%
-    drive_download(path = here::here("convo.csv"),overwrite = T) %>%
-    select(local_path) %>%
-    as.character() %>%
-    read_csv()
+  # convo <-  googledrive::as_id("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w") %>%
+  #   googledrive::drive_get() %>%
+  #   googledrive::drive_download(path = here::here("convo.csv"),overwrite = T) %>%
+  #   select(local_path) %>%
+  #   as.character() %>%
+  #   read_csv()
+
+  convo <- googlesheets4::read_sheet("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
+
 
   #filter rows
   varNames <- pullTsVariable(sTS,"paleoData_variableName")
@@ -438,7 +579,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
 
   #specific search second
   for(to in to.omit.specific){
-    toi <- append(toi,which(to == uvn))
+    toi <- append(toi,which(tolower(to) == tolower(uvn)))
   }
 
   #grab them all and filter
@@ -460,6 +601,9 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
 
   if(any(varNames=="age")){
     allAge <- pullTsVariable(fsTS,"age")
+    if(is.matrix(allAge)){
+      allAge <- split(allAge, rep(1:ncol(allAge), each = nrow(allAge)))
+    }
   }else{
     allAge <- vector(mode = "list",length = length(fsTS))
   }
@@ -512,8 +656,13 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
     }
     fsTS <- pushTsVariable(fsTS,"climateInterpretation1_isAnnual",nci1s,createNew = TRUE)
 
+
+
     #find NAs before
     allVals <- pullTsVariable(fsTS,"paleoData_values")
+    if(is.matrix(allVals)){
+      allVals <- split(allVals, rep(1:ncol(allVals), each = nrow(allVals)))
+    }
 
     goodfun <- function(age,vals,fun){
       out <- fun(age[is.finite(vals)],na.rm = TRUE)
@@ -525,8 +674,10 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
     maxAge <- purrr::map2_dbl(allAge,allVals,goodfun,max)
     maxAge[!is.finite(maxAge)] <- NA
 
-    # minAge <- sapply(allAge,min,na.rm=TRUE)
-    # maxAge <- sapply(allAge,max,na.rm=TRUE)
+
+
+    #     minAge <- sapply(allAge,min,na.rm=TRUE)
+    #     maxAge <- sapply(allAge,max,na.rm=TRUE)
 
     #ages per kyr
     nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
@@ -597,13 +748,17 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   #out[1,] <- qcs[1,]
   for(i in 1:length(toPull)){
     n2p <- convo$tsName[toPull[i]==convo$qcSheetName]
-    if(any(n2p==allNames)){
+    if(length(n2p) == 0){n2p <- "missingVariable!!!"}
+    if(n2p == "inCompilationBeta_struct"){#figure out wheter it's in the compilation or not
+        vec <- inThisCompilation(TS = fsTS,compName = compilationName,compVers = compVersion)
+    }else if(any(n2p==allNames)){#regular check
       vec <- pullTsVariable(fsTS,n2p)
       #check to see if vec is authors
 
       if(grepl("author",n2p)){
         vec <- flattenAuthors(vec)
       }
+
     }else{
       print(str_c("Does not exist in TS. Putting an empty column for ",toPull[i]))
       vec <- rep(NA,outRows)
@@ -625,6 +780,54 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("depth","age","year"),t
   return(out)
 }
 
+
+#' In this compilation
+#'
+#' @param TS
+#' @param compName
+#' @param compVers
+#'
+#' @return
+#' @export
+#'
+#' @examples
+inThisCompilation <- function(TS,compName,compVers){
+  allNames <- sort(unique(unlist(sapply(TS,names))))#get all names in TS
+  #get all the names of the compilations
+  allComps <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationName",allNames)]
+  allVers <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationVersion",allNames)]
+
+if(length(allComps) == 0){
+ return(matrix(NA,nrow = length(TS)))
+
+}
+  allCompNames <- vector(mode = "list",length=length(allComps))
+  allCompVersions <- vector(mode = "list",length=length(allComps))
+
+  #get all the data
+  for(i in 1:length(allComps)){
+  allCompNames[[i]] <- pullTsVariable(TS,allComps[i])
+  allCompVersions[[i]] <- pullTsVariable(TS,allVers[i])
+  }
+
+  #check to see if they match
+  checkfun <- function(cn,cv,compName,compVers){
+    bothMatch <- (cn==compName & purrr::map_lgl(cv,function(x){any(x == compVers)}))
+    #put NAs back in for compName
+    incn <- which(is.na(cn))
+    bothMatch[incn] <- NA
+    return(bothMatch)
+  }
+
+  #check for each compilation
+  compCheck <- purrr::map2_dfc(allCompNames,allCompVersions,checkfun,compName,compVers)
+
+  #check across rows
+  unify <- as.matrix(apply(compCheck,1,any))
+
+  return(unify)
+
+}
 
 #' Create a new QC spreadsheet on google drive
 #' @export
@@ -667,12 +870,13 @@ createNewProject <- function(templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0k
   newRow$`dataSets removed` <- " "
   newRow$`dataSets added` <- " "
   nvdf <- dplyr::bind_rows(versionDf,newRow)
-  readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
-  googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
-
+  #readr::write_csv(nvdf,path = file.path(tempdir(),"versTemp.csv"))
+  #googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
+  googlesheets4::write_sheet(nvdf,ss = versionMetaId,sheet = "versioning")
 
   #copy the template file
-  template <- getGoogleQCSheet(templateID)
+  #template <- getGoogleQCSheet(templateID)
+  template <- googlesheets4::read_sheet(ss = templateID,col_names = TRUE,range = "1:2")
   template <- template[1,]
   template[] <- NA
 

@@ -22,7 +22,7 @@
 #' @export
 #'
 #' @examples
-createProjectDashboards <- function(D,TS,webDirectory,project,version,currentVersion = TRUE){
+createProjectDashboards <- function(D,TS,webDirectory,project,version){
 #if there's no html directory, create one
 if(!dir.exists(file.path(webDirectory,project))){
   dir.create(file.path(webDirectory,project))
@@ -56,8 +56,12 @@ ui <- which(!duplicated(dsn))
 udsn <- dsn[ui]
 lat <- lipdR::pullTsVariable(TS,"geo_latitude")[ui]
 lon <- lipdR::pullTsVariable(TS,"geo_longitude")[ui]
-elev <- lipdR::pullTsVariable(TS,"geo_elevation")[ui]
+if("geo_elevation" %in% varNames){
+  elev <- lipdR::pullTsVariable(TS,"geo_elevation")[ui]
+}else{
+  elev <- matrix(NA, nrow = length(lat))
 
+}
 archiveType <- lipdR::pullTsVariable(TS,"archiveType")[ui]
 link <- paste0(udsn,".html") %>%
   str_replace_all("'","_")
@@ -82,12 +86,18 @@ map.meta <- data.frame(dataSetName = udsn, #datasetname
 createProjectRmd(webDirectory,project, version )
 
 rmarkdown::render(file.path(webDirectory,project,version,"index.Rmd"))
+#add google tag
+tag <- readLines(file.path(webDirectory,"gatag.html"))
+
+message <- addGoogleTracker(file.path(webDirectory,project,version,"index.html"),tag)
+message2 <- addLogoLink(file.path(webDirectory,project,version,"index.html"),link = "http://lipdverse.org")
+
 
 failed = c()
 for(i in 1:nrow(map.meta)){
   print(i)
   fname <- str_replace_all(udsn[i],"'","_")
- # if(!file.exists(file.path(webDirectory,project,version,str_c(fname,".html")))){
+  if(!file.exists(file.path(webDirectory,project,version,str_c(fname,".html")))){
 
     thisTS <- TS[which(udsn[i] == dsn)]
 
@@ -100,7 +110,10 @@ for(i in 1:nrow(map.meta)){
     test = try(createDashboardRmd(thisTS = thisTS,i = i,webDirectory = webDirectory,project = project,version = version,chronTS = chronTS,map.meta = map.meta))
     Sys.sleep(1)
     test = try(rmarkdown::render(file.path(webDirectory,project,version,str_c(fname,".Rmd"))))
-
+    htmlFile <- file.path(webDirectory,project,version,str_c(fname,".html"))
+    if(file.exists(htmlFile)){
+      message <- addGoogleTracker(htmlFile,tag)
+    }
     if(grepl(class(test),"try-error")){
       failed = c(failed, udsn[i])
     }else{
@@ -109,7 +122,7 @@ for(i in 1:nrow(map.meta)){
     }
     writeLipd(D[[map.meta$dataSetName[i]]],path = file.path(webDirectory,project,version))
 
- # }
+  }
   #copy the lipd file if it's not already there
   # if(!file.exists(file.path(webDirectory,project,version,str_c(fname,".lpd")))){
   #   file.copy(from = str_c(lipdDir,fname,".lpd"),to = file.path(webDirectory,project))
@@ -121,12 +134,12 @@ zip(zipfile = file.path(webDirectory,project,version,str_c(project,version,".zip
 #write out failed somewhere
 write.table(x = failed,file = file.path(webDirectory,project,version,"failedLipdversePage.txt"),col.names = FALSE,row.names = FALSE )
 
-#if current version, copy into current_version folder
-if(currentVersion){
-  unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
-  dir.create(file.path(webDirectory,project,"current_version"))
-  file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version"), recursive=TRUE,overwrite = TRUE)
-}
+# #if current version, copy into current_version folder
+# if(currentVersion){
+#   unlink(file.path(webDirectory,project,"current_version"),force = TRUE,recursive = TRUE)
+#   dir.create(file.path(webDirectory,project,"current_version"))
+#   file.copy(file.path(webDirectory,project,version,.Platform$file.sep), file.path(webDirectory,project,"current_version"), recursive=TRUE,overwrite = TRUE)
+# }
 
 
 

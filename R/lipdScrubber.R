@@ -1,3 +1,154 @@
+#' clean original data url
+#'
+#' @param L
+#'
+#' @return L
+#' @export
+cleanOriginalDataUrl <- function(L){
+  if(is.null(L$originalDataUrl) & !is.null(L$originalDataUrl)){
+    L$originalDataUrl <- L$originalDataURL
+  }
+  L$originalDataURL <- NULL
+
+  #make sure that it's not a multi length character
+  if(length(L$originalDataUrl) > 1){
+    L$originalDataUrl <- paste(L$originalDataUrl,collapse = "; ")
+  }
+
+  return(L)
+}
+
+#' Remove empty tables
+#'
+#' @param L a Lipd file
+#' @param pc paleo or chron tables? (default= "all)
+#'
+#' @return a list of data.frames
+#' @export
+removeEmptyTables <- function(L,pc = "all"){
+  if(pc == "all"){
+    pc <- c("paleo","chron")
+  }
+
+  at <- list()#initialize alltables
+  for(tpc in pc){
+    PC <- L[[paste0(tpc,"Data")]]
+    if(length(PC) == 0){
+      next
+    }
+
+    for(ni in 1:length(PC)){
+      for(mi in 1:length(PC[[ni]]$measurementTable)){
+        TT <- PC[[ni]]$measurementTable[[mi]]
+        loTT <- TT[purrr::map_lgl(TT,is.list)]
+        tt <- loTT[[1]]$values
+        tnames <- loTT[[1]]$variableName
+        if(length(loTT) > 1){
+          for(c in 2:length(loTT)){
+            tt <- cbind(tt,loTT[[c]]$values)
+            tnames <- c(tnames,loTT[[c]]$variableName)
+          }
+        }
+
+        if(all(is.na(tt))){# it's empty
+          L[[paste0(tpc,"Data")]][[ni]]$measurementTable[[mi]] <- NULL
+          print(paste("Removed",L$dataSetName,tpc,ni,"measurementTable",mi,"because it had no data"))
+        }
+      }
+      if(length(L[[paste0(tpc,"Data")]][[ni]]$measurementTable) == 0){#remove the meas table
+        L[[paste0(tpc,"Data")]][[ni]]$measurementTable <- NULL
+      }
+      if(length(L[[paste0(tpc,"Data")]][[ni]]) == 0){
+        L[[paste0(tpc,"Data")]][[ni]] <- NULL
+      }
+      if(length(L[[paste0(tpc,"Data")]]) == 0){
+        L[[paste0(tpc,"Data")]] <- NULL
+      }
+    }
+
+  }
+  return(L)
+}
+
+
+
+
+
+#' Create vectors for lumping
+#'
+#' @param TS TS object
+#' @param groupFrom name of TS variable to group
+#' @param groupInto name of group to put into TS
+#'
+#' @return updated TS object
+#' @export
+#'
+#' @examples
+createVectorsForGroups <- function(TS,groupFrom,groupInto){
+  if(length(groupFrom) != length(groupInto)){
+    stop("groupFrom and groupInto must be the same length")
+  }
+
+  allNames <- unique(unlist(sapply(TS,names)))#get all names in TS
+
+  for(g in 1:length(groupFrom)){
+    if(groupFrom[g] %in% allNames){
+      pl <- lipdR::pullTsVariable(TS,groupFrom[g])
+      TS <- lipdR::pushTsVariable(TS,groupInto[g],pl,createNew = TRUE)
+    }
+  }
+
+
+  return(TS)
+}
+
+#' figure out  interpretation group directions
+#'
+#' @param vec
+#' @import googlesheets4
+#' @return
+#' @export
+#'
+#' @examples
+getInterpretationGroupDirections <- function(vec){
+  cs <- googlesheets4::sheets_read("1Y7ySazKZSil_NmZPI5TEE2MVQWK4wlb_6VxlAtxeSUo",sheet = 2)
+  gd <- matrix(NA,nrow = length(vec))
+  for(n in 1:ncol(cs)){
+    tc <- which(vec == names(cs)[n])
+    gd[tc,1] <- cs[1,n]
+    gd <- as.matrix(gd)
+  }
+  return(gd)
+
+}
+
+#' create directions for groups
+#'
+#' @param TS
+#' @param groupFrom
+#' @param groupInto
+#'
+#' @return
+#' @export
+#'
+#' @examples
+createInterpretationGroupDirections <- function(TS,groupFrom,groupInto){
+  if(length(groupFrom) != length(groupInto)){
+    stop("groupFrom and groupInto must be the same length")
+  }
+  allNames <- unique(unlist(sapply(TS,names)))#get all names in TS
+  for(g in 1:length(groupFrom)){
+    if(groupFrom[g] %in% allNames){
+      igd <- getInterpretationGroupDirections(lipdR::pullTsVariable(TS,groupFrom[g]))
+      TS <- lipdR::pushTsVariable(TS,groupInto[g],igd,createNew = TRUE)
+    }
+  }
+  return(TS)
+}
+
+
+
+
 
 #' remove all instances of a variable from a TS
 #'
@@ -140,6 +291,21 @@ getVals <- function(key,conv){
   return(out)
 }
 
+
+#' remove artificial conflicts for a column
+#'
+#' @param col
+#'
+#' @return col
+#' @export
+removeFakeConflictsCol <- function(col){
+  if(is.character(col)){
+  col <- purrr::map_chr(col,removeFakeConflicts)
+  }
+  return(col)
+}
+
+
 #' remove artificial conflicts after merging
 #'
 #' @param string a string
@@ -166,7 +332,7 @@ removeFakeConflicts <- function(string){
 #' @param L
 #' @description standardizes the variable names in the chronData measurement tables.
 #' @return L
-#' @exportlibrar
+#' @export
 standardizeChronVariableNames <- function(L){
   if(is.null(L$chronData[[1]]$measurementTable[[1]])){
     return(L)
@@ -276,7 +442,7 @@ standardizeValuesInValues <- function(TS,googId){
 #' @export
 standardizeTsValues <- function(TS, renamingDirectoryId  = "1b-4arcNxxGsArCM6XfjW6y6yAp85BMlF-Gn8au4Zygg"){
   #get the directory
-  direc <- getConverter(renamingDirectoryId,howLong = 1)
+  direc <- getConverter(renamingDirectoryId,howLong = 30)
 
   #get all the names in the TS
   allNames <- unique(unlist(sapply(TS,names)))
@@ -381,7 +547,7 @@ fixKiloyearsTsChron <- function(TS){
     return(TS)
   }
 
-  isAge <- which(vars=="age")
+  isAge <- which(grepl("age",vars))
   if(length(isAge) >= 1){
     for(i in isAge){
       if(!is.na(units[i])){
@@ -437,6 +603,9 @@ ai <- names(tsi)[which(str_detect(names(tsi),"interpretation"))]
 
 #get the scopes
 as <- ai[which(str_detect(ai,"scope"))]
+if(length(as)==0){#try variable
+  as <- ai[which(str_detect(ai,"variable"))]
+}
 
 for(i in 1:length(as)){
   tn <- str_extract(as[i],"[0-9]")

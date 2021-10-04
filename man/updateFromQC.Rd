@@ -4,7 +4,7 @@
 \alias{updateFromQC}
 \title{update a split Timeseries object from a google QC sheet}
 \usage{
-updateFromQC(sTS, qcs)
+updateFromQC(sTS, qcs, compilationName = "test", newVersion = "0.0.0")
 }
 \arguments{
 \item{sTS}{a split timeseries object}

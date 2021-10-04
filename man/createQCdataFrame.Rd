@@ -4,8 +4,15 @@
 \alias{createQCdataFrame}
 \title{Create QC data.frame}
 \usage{
-createQCdataFrame(sTS, templateId, to.omit = c("depth", "age", "year"),
-  to.omit.specific = c("yr"), ageOrYear = "age")
+createQCdataFrame(
+  sTS,
+  templateId,
+  to.omit = c("age", "year"),
+  to.omit.specific = c("depth", "yr"),
+  ageOrYear = "age",
+  compilationName = NA,
+  compVersion = NA
+)
 }
 \value{
 a data.frame QC sheet

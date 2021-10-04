@@ -4,14 +4,20 @@
 \alias{tickVersion}
 \title{Title}
 \usage{
-tickVersion(project, udsn,
+tickVersion(
+  project,
+  qcIc,
+  tsIc,
   versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
-  googEmail = NULL)
+  googEmail = NULL
+)
 }
 \arguments{
 \item{project}{project name}
 
-\item{udsn}{a vector of dataset names in the project}
+\item{qcIc}{dataSetNames in this compilation from teh QC sheet}
+
+\item{tsIc}{dataSetNames in the last compilation from the files}
 
 \item{versionMetaId}{ID of the versioning qc sheet}
 

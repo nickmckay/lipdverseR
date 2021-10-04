@@ -6,6 +6,9 @@
 \usage{
 getVals(key, conv)
 }
+\value{
+
+}
 \description{
 Get values for replacement from a converter
 }

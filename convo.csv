@@ -9,6 +9,7 @@ climateVariable,climateInterpretation1_variable,character
 climateVariableDetail,climateInterpretation1_variableDetail,character
 annual?,climateInterpretation1_isAnnual,character
 climateInferredMaterial,climateInterpretation1_inferredMaterial,character
+dynamicalSystem,climateInterpretation1_dynamical,character
 collectionName,collectionName,character
 contributorName,contributorName,character
 dataPub1_author,dataPub1_author,character
@@ -18,6 +19,7 @@ dataPub1_pubYear,dataPub1_pubYear,numeric
 dataPub1_title,dataPub1_title,character
 dataPub1_type,dataPub1_type,character
 dataPub1_url,dataPub1_url,character
+datasetId,datasetId,character
 dataSetName,dataSetName,character
 dataContributor,dataContributor,character
 elevation,geo_elevation,numeric
@@ -74,6 +76,7 @@ Iso2k primary timeseries for dataset,paleoData_iso2kPrimaryTimeseries,character
 iso2kUI,paleoData_iso2kUI,character
 measurementMaterial,paleoData_measurementMaterial,character
 measurementMaterialDetail,paleoData_measurementMaterialDetail,character
+mostRecentCompilations,paleoData_mostRecentCompilations,character
 paleoDataNotes,paleoData_notes,character
 PAGES 2k ID,paleoData_pages2kId,character
 proxy,paleoData_proxy,character
@@ -90,6 +93,8 @@ useInGlobalHoloceneTemperature,paleoData_useHoloceneTemp,character
 useInGlobalHolocene,paleoData_useInGlobalTemperatureAnalysis,character
 variableName,paleoData_variableName,character
 variableNameOriginal,paleoData_variableNameOriginal,character
+meetsHoloceneCriteria,paleoData_meetsHoloceneHydroclimateCriteria,character
+primaryTimeseries,paleoData_primaryTimeseriesHoloceneHydroclimate,character
 pub1_authors,pub1_author,author
 pub1_citation,pub1_citation,character
 pub1_citeKey,pub1_citeKey,character
@@ -128,3 +133,5 @@ pub3_citation,pub3_citation,character
 pub3_citeKey,pub3_citeKey,character
 pub3_doi,pub3_doi,character
 pub3_year,pub3_year,numeric
+temp12kUncertainty,paleoData_temperature12kUncertainty,character
+wNAmUncertainty,paleoData_wNAmUncertainty,character

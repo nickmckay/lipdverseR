@@ -14,6 +14,31 @@ hasChron <- function(L){
   }
 }
 
+#' has paleo ensemble
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
+hasPaleoEnsemble <- function(L){
+  hce <- FALSE
+
+  if(any(names(L)=="paleoData")){
+    for(i in 1:length(L$paleoData)){
+      if(any(names(L$paleoData[[i]])=="model")){
+        for(j in 1:length(L$paleoData[[i]]$model)){
+          if(any(names(L$paleoData[[i]]$model[[j]])=="ensembleTable")){
+            hce <- TRUE
+            return(hce)
+          }
+        }
+      }
+    }
+  }
+  return(hce)
+}
 
 #' has chron ensemble
 #'
