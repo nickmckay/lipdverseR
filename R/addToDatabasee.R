@@ -39,6 +39,8 @@ addLipdToDatabase <- function(L,
     databaseRef <- get("databaseRef",envir = .GlobalEnv)
   }else{
     databaseRef <- createDatabaseReference(lipdR::readLipd(dbPath))
+    assign("databaseRef",value = databaseRef,envir = .GlobalEnv)
+
   }
 
   #check for needed variables
