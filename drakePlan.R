@@ -10,7 +10,7 @@ setwd("/Users/nicholas/GitHub/lipdverseR/")
 
 googEmail <- "nick.mckay2@gmail.com"
 #authorize google
-googlesheets4::sheets_auth(email = googEmail,cache = ".secret")
+googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 googledrive::drive_auth(email = googEmail,cache = ".secret")
 
 
@@ -57,6 +57,27 @@ test <- drake_plan(
   changeloggingAndUpdating(params,data8)
 )
 
+test <- drake_plan(
+  params = buildParams("test",
+                       "/Users/nicholas/Dropbox/lipdverse/testDatabase",
+                       "/Users/nicholas/Dropbox/lipdverse/html/",
+                       qcId = "1P0_e-frsQIYFLjLBiJTfouEbdIhMW7UPfYGZBnaDep0",
+                       lastUpdateId = "1RbAs0qRWqvHCUfI7q_Er5UKAxRy-otRh7pdM2PKYCHw",
+                       googEmail = "nick.mckay2@gmail.com",
+                       updateWebpages = TRUE,
+                       standardizeTerms = FALSE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2 = getQcInfo(params,data1),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data6 = createWebpages(params,data5),
+  data7 = updateGoogleQc(params,data6),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
 
 #run it
-drake::make(test,lock_envir = FALSE)
+drake::make(HoloceneHydroclimate,lock_envir = FALSE)
