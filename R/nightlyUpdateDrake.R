@@ -176,7 +176,7 @@ assignVariablesFromList <- function(params,env = parent.env(environment())){
 }
 
 
-#' Do a complete update to a project
+#' Build parameters
 #'
 #' @param project project name
 #' @param lipdDir authority directory for a lipd file
@@ -191,20 +191,6 @@ assignVariablesFromList <- function(params,env = parent.env(environment())){
 #' @import lipdR
 #' @import geoChronR
 #' @export
-# updateProject <- function(project,
-#                           lipdDir,
-#                           webDirectory,
-#                           qcId,
-#                           lastUpdateId,
-#                           versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
-#                           googEmail = NULL,
-#                           updateWebpages = TRUE,
-#                           standardizeTerms = TRUE,
-#                           ageOrYear = "age",
-#                           restrictWebpagesToCompilation = TRUE,
-#                           serialize = TRUE,
-#                           projVersion = NA){
-
 buildParams <- function(project,
                lipdDir,
                webDirectory,
@@ -226,6 +212,14 @@ buildParams <- function(project,
 
 
 
+#' Check if an update is needed
+#'
+#' @param params
+#'
+#' @return
+#' @export
+#'
+#' @examples
 checkIfUpdateNeeded <- function(params){
 
   #parse parameters
@@ -246,7 +240,12 @@ checkIfUpdateNeeded <- function(params){
 }
 
 
-#an update is needed!!!
+#' Load in new data
+#'
+#' @param params
+#'
+#' @return
+#' @export
 loadInUpdatedData <- function(params){
 
   assignVariablesFromList(params)
@@ -315,6 +314,13 @@ loadInUpdatedData <- function(params){
 }
 
 
+#' Get QC
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 getQcInfo <- function(params,data){
 
   assignVariablesFromList(params)
@@ -406,6 +412,13 @@ getQcInfo <- function(params,data){
   return(data)
 }
 
+#' Create QC sheet from data
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 createQcFromFile <- function(params,data){
   assignVariablesFromList(params)
   assignVariablesFromList(data)
@@ -434,6 +447,13 @@ createQcFromFile <- function(params,data){
   return(data)
 }
 
+#' Merge sources
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 mergeQcSheets <- function(params,data){
   assignVariablesFromList(params)
   assignVariablesFromList(data)
@@ -520,6 +540,13 @@ mergeQcSheets <- function(params,data){
 }
 
 
+#' updateTsFromMergedQc
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 updateTsFromMergedQc <- function(params,data){
   assignVariablesFromList(params)
   assignVariablesFromList(data)
@@ -608,6 +635,14 @@ updateTsFromMergedQc <- function(params,data){
 
 
 }
+
+#' Create lipdversePages
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 createWebpages <- function(params,data){
   assignVariablesFromList(params)
   assignVariablesFromList(data)
@@ -668,6 +703,13 @@ createWebpages <- function(params,data){
 }
 
 
+#' Update google
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 updateGoogleQc <- function(params,data){
   assignVariablesFromList(params)
   assignVariablesFromList(data)
@@ -699,6 +741,13 @@ updateGoogleQc <- function(params,data){
 
 }
 
+#' Finalize
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 finalize <- function(params,data){
 
   assignVariablesFromList(params)
@@ -747,6 +796,13 @@ finalize <- function(params,data){
  return(data)
 }
 
+#' Log changes and update
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
 changeloggingAndUpdating <- function(params,data){
 
   assignVariablesFromList(params)
@@ -764,7 +820,7 @@ changeloggingAndUpdating <- function(params,data){
                            notesTib = dsidKey)
 
   }else{#write empty changelog
-    cle <- glue::glue("## Changelog is empty - probably because there were no files in the web directory for {proj} version {lastVersionNumber}")
+    cle <- glue::glue("## Changelog is empty - probably because there were no files in the web directory for {project} version {lastVersionNumber}")
     readr::write_file(cle,file.path(webDirectory,project,projVersion,"changelogEmpty.Rmd"))
     rmarkdown::render(file.path(webDirectory,project,projVersion,"changelogEmpty.Rmd"),
                       output_file = file.path(webDirectory,project,projVersion,"changelogSummary.html"))
