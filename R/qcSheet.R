@@ -735,12 +735,6 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
     stop("ageOrYear must be 'age' or 'year'")
   }
 
-  #create better max/min age labels
-  minAge <- minYear
-  maxAge <- maxYear
-  minYearCE <- convertBP2AD(maxYear)
-  maxYearCE <- convertBP2AD(minYear)
-
 
   #vectors to create
   toPull <- names(qcs) #get all names from template
