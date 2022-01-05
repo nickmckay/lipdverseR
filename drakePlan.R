@@ -88,6 +88,7 @@ CH2k <- drake_plan(
                        lastUpdateId = "1N1F1pmepvW3r0l8Wqqm0ibp7MmNJnwAml-quPDQ1wzs",
                        googEmail = "nick.mckay2@gmail.com",
                        updateWebpages = TRUE,
+                       ageOrYear = "year",
                        standardizeTerms = FALSE,
                        serialize = FALSE),
   updateNeeded = checkIfUpdateNeeded(params),
