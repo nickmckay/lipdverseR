@@ -16,6 +16,7 @@ updateProject(
   standardizeTerms = TRUE,
   ageOrYear = "age",
   restrictWebpagesToCompilation = TRUE,
+  serialize = TRUE,
   projVersion = NA
 )
 }

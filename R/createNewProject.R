@@ -1,15 +1,15 @@
 createNewLipdverseProject <- function(){
 #create new project
-proj <- "Lakes380"
+proj <- "Hydro21k"
 init.vers <- "0_1_0"
-lipd.dir <- "/Users/nicholas/Dropbox/lipdverse/lakes380/"
+lipd.dir <- "/Users/nicholas/Dropbox/lipdverse/database/"
 web.dir <- "/Users/nicholas/Dropbox/lipdverse/html/"
 versionMetaId <-  "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY"
 googEmail <-  "nick.mckay2@gmail.com"
-templateId <- "1Tjs-WjZdy5DxpIrI2Sd20VVQqCF4fy23-1HTN2zVinw"
+templateId <- "166sUZ3rnjizRv2KCtcaaEj8NKIQgW6L1_z78VtNgOM4"
 restrictWebpagesToCompilation <- TRUE
 initializeCompilationVersion <- TRUE
-makeWebpages <- TRUE
+makeWebpages <- FALSE
 
 # load in the data
 D <- readLipd(lipd.dir)
@@ -79,7 +79,7 @@ if(makeWebpages){
   googledrive::drive_auth(email = googEmail,cache = ".secret")
 
 #create a qc sheet
-  qcsheet <- createQCdataFrame(nsTS,templateId = "1Tjs-WjZdy5DxpIrI2Sd20VVQqCF4fy23-1HTN2zVinw",ageOrYear = "age",compilationName = proj,compVersion = init.vers)
+  qcsheet <- createQCdataFrame(nsTS,templateId = templateId,ageOrYear = "age",compilationName = proj,compVersion = init.vers)
 
 #create a google qc sheet
 createNewQCSheet(qcsheet,stringr::str_c(proj," v.",init.vers," QC sheet"))

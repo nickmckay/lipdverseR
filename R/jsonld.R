@@ -272,8 +272,7 @@ createThroughputWidget <- function(L){
   str_c(glue::glue('link="',L$datasetId,'" ')) %>%
   str_c('additional-type="http://linked.earth/ontology%23Dataset" ') %>%
   str_c('orcid-client-id="APP-W2LVD1XEIP1Z2Z9N" ') %>%
-  str_c('use-orcid-sandbox="false" ') %>%
-  str_c('token="gaWSg#B4H*wy9a-d"></throughput-widget>')
+  str_c('</throughput-widget>')
 
   return(th)
 }
