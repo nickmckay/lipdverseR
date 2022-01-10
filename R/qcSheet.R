@@ -812,7 +812,17 @@ if(length(allComps) == 0){
 
   #check to see if they match
   checkfun <- function(cn,cv,compName,compVers){
-    bothMatch <- (cn==compName & purrr::map_lgl(cv,function(x){any(x == compVers)}))
+    if(is.list(cv)){
+      anycvm <- purrr::map_lgl(cv,function(x){any(x == compVers)})
+    }else{
+    cvm <- t(as.matrix(cv))
+    anycvm <- apply(cvm,1,function(x){any(x == compVers)})
+    }
+
+  # old code here:
+   # bothMatch <- (cn==compName & purrr::map_lgl(cv,function(x){any(x == compVers)}))
+    bothMatch <- (cn==compName & anycvm)
+
     #put NAs back in for compName
     incn <- which(is.na(cn))
     bothMatch[incn] <- NA

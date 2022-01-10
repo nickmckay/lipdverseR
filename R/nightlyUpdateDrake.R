@@ -661,7 +661,6 @@ createWebpages <- function(params,data){
       ictsi <- seq_along(nTS)
       icdi <- seq_along(nD)
       nicdi <- NULL
-
     }
 
 
