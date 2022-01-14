@@ -202,7 +202,7 @@ plot.name <- thisTS[[ind]][[stringr::str_c(mode,"Data_variableName")]]
     plot.name <- stringr::str_c(thisTS[[ind]][[stringr::str_c(mode,"Data_proxy")]]," - ",thisTS[[ind]][[stringr::str_c(mode,"Data_variableName")]])
   }
 
-  dy.plot <- dygraph(df, main = plot.name) %>%
+  dy.plot <- dygraph(df, main = plot.name,width = "100%") %>%
     dyAxis("x", drawGrid = FALSE, label = timeUnits) %>%
     dyAxis("y", label = names(df)[2]) %>%
     dyOptions(includeZero = FALSE,

@@ -870,9 +870,9 @@ createSerializations <- function(D,
                                  webDirectory,
                                  project,
                                  projVersion,
-                                 matlabUtilitiesPath = "/Users/nicholas/GitHub/LiPD-utilities/Matlab",
-                                 matlabPath = "/Applications/MATLAB_R2017a.app/bin/matlab",
-                                 python3Path="/Users/nicholas/miniconda2/envs/pyleoenv/bin"){
+                                 matlabUtilitiesPath = "/Volumes/data/GitHub/LiPD-utilities/Matlab",
+                                 matlabPath = "/Applications/MATLAB_R2021b.app/bin/matlab",
+                                 python3Path="/Users/nicholas/opt/anaconda3/envs/pyleo/bin/python3"){
   #create serializations for web
   #R
 
