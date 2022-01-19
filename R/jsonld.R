@@ -130,17 +130,10 @@ purrr::walk(ajq,webdir,overwrite = overwrite)
 }
 
 
-addJsonldToHtml <- function(dataSetName,webdir, overwrite = FALSE){
+addJsonldToHtml <- function(htmlpath,webdir, overwrite = FALSE){
   #check for lpd and html files
 
-  lpdpath <- file.path(webdir,paste0(dataSetName,'.lpd'))
-  htmlpath <- file.path(webdir,paste0(dataSetName,".html"))
-  if(!file.exists(htmlpath)){
-    stop(glue::glue("{htmlpath} is missing, make sure it's been generated"))
-  }
-  if(!file.exists(lpdpath)){
-    stop(glue::glue("{lpdpath} is missing, make sure it's been generated"))
-  }
+lpdpath <- str_replace(htmlpath,fixed(".html"),".lpd")
 
   #create snippet
   L <- lipdR::readLipd(lpdpath)
@@ -278,6 +271,10 @@ createThroughputWidget <- function(L){
 }
 
 createJsonldSnippet <- function(L){
+  dsid <- L$datasetId
+  dsn <- L$dataSetName
+  vers <- max(sapply(L$changelog,"[[","version"))
+  vers_ <- str_replace_all(vers,"[.]","_")
   J <- list()
   #context
   J[["@context"]] <- list()
@@ -287,22 +284,22 @@ createJsonldSnippet <- function(L){
   J[["@type"]] <- "Dataset"
 
   #additionalType
-  J$additionalType <- "http://linked.earth/ontology/core/1.2.0/index-en.html#Dataset"
+  J$additionalType <- "http://linked.earth/ontology#Dataset"
 
 
   if(is.null(L$datasetId)){stop("Dataset must have a datasetId")}
   #id
   #J["@id"] <- glue::glue("metadata:{L$datasetId}")
-  J[["@id"]] <- L$lipdverseLink
+  J[["@id"]] <- glue::glue("https://lipdverse.org/data/{L$datasetId}/{vers_}/{dsn}.html")
 
   #identifier
   J[["identifier"]] <- list()
-  J[["identifier"]][["@id"]] <- glue::glue("https://lipdverse.org/resource/dataset/{L$datasetId}")
+  J[["identifier"]][["@id"]] <- glue::glue("https://lipdverse.org/data/{L$datasetId}")
   J[["identifier"]][["@type"]] <- "PropertyValue"
   J[["identifier"]][["propertyID"]] <- "http://linked.earth/ontology#hasDatasetId"
   J[["identifier"]][["name"]] <- glue::glue("lipdverse dataset ID {L$datasetId}")
   J[["identifier"]][["value"]] <- L$datasetId
-  J[["identifier"]][["url"]] <- glue::glue("https://lipdverse.org/resource/dataset/{L$datasetId}")
+  J[["identifier"]][["url"]] <- glue::glue("https://lipdverse.org/data/{L$datasetId}")
 
 
   #name
@@ -314,13 +311,13 @@ createJsonldSnippet <- function(L){
   #distribution
   J$distribution <- vector(mode = "list",length = 1)
   J$distribution[[1]]$`@type` <- "DataDownload"
-  J$distribution[[1]]$contentUrl <- stringr::str_replace(L$lipdverseLink,".html",".lpd")
-  J$distribution[[1]]$encodingFormat <- c("application/zip", "http://linked.earth/ontology/core/1.2.0/index-en.html#Dataset")
+  J$distribution[[1]]$contentUrl <-  glue::glue("https://lipdverse.org/data/{L$datasetId}/{vers_}/{dsn}.lpd")
+  J$distribution[[1]]$encodingFormat <- c("application/zip", "http://linked.earth/ontology#Dataset")
   J$distribution[[1]]$datePublished <- parsedate::format_iso_8601(Sys.time())
     as.character()
 
   #url
-  J$url <- L$lipdverseLink
+  J$url <- glue::glue("https://lipdverse.org/data/{L$datasetId}/{vers_}/{dsn}.html")
 
   #version
   J$version <- getVersion(L)
@@ -417,6 +414,8 @@ createDescription <- function(L){
 
   if(!noDur){
     durstring <- glue::glue("from {round(old)} to {round(young)} ({units})")
+  }else{
+    durstring <- glue::glue("described in the paper")
   }
 
   #variables

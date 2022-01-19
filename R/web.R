@@ -17,7 +17,7 @@ vers_ <- str_replace_all(vers,"[.]","_")
 #create some strings we'll need
 
 sidebarTitle <- glue::glue("{dsn} - v{vers}")
-dsidstr <- paste("Dataset Id =",dsid)
+dsidstr <- paste("Dataset Id:",dsid)
 dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
 lpdPath <- glue("{dsPath}/{dsn}.lpd")
 csvName <- glue("{dsPath}/{dsn}.csv")
@@ -25,7 +25,9 @@ csvNameChron <- glue("{dsPath}/{dsn}-chron.csv")
 
 
 #prep and setup widget
-sidebar <- '<script type="module" src="https://unpkg.com/throughput-widget/dist/throughputwidget/throughputwidget.esm.js"></script>\n\n'
+sidebar <- '<head>\n
+<base target="_PARENT">\n
+</head>\n'
 
 
 
@@ -33,10 +35,8 @@ sidebar <- '<script type="module" src="https://unpkg.com/throughput-widget/dist/
 #html sidebar
 sidebar <- sidebar %>%
   str_c('<div class="sidenav"> \n') %>%
-  str_c(glue('<h3>{sidebarTitle}</h2>',sep = "\n")) %>%
-  str_c(glue('<h4>{dsidstr}</h3>',sep = "\n")) %>%
-  #add in throughput widget
-  str_c(glue('<throughput-widget identifier="r3d100012894" link="{dsid}" additional-type="http://linked.earth/ontology#Dataset" orcid-client-id="APP-W2LVD1XEIP1Z2Z9N"></throughput-widget>'),sep = "\n") %>%
+  str_c(glue('<h2>{sidebarTitle}</h2>',sep = "\n")) %>%
+  str_c(glue('<h4><a href="{dsPath}">{dsidstr}</a></h4>',sep = "\n")) %>%
   str_c(glue('<p style="margin-left: 0px"><a href="{lpdPath}">Download LiPD file</a>',sep = "\n")) %>%
   str_c("\n") %>%
   str_c("            \n") %>%
@@ -252,8 +252,6 @@ if(!dir.exists(file.path(webdir,"data",dsid,vers_))){
 write_file(sidebar,file = file.path(webdir,"data",dsid,vers_,"sidebar.html"))
 
 
-out <- list(plotOrder,plotOrderChron)
-return(out)
 
 }
 
@@ -293,12 +291,56 @@ createProjectMapHtml <- function(TS,project,projVersion,webdir = "/Volumes/data/
 
   rmarkdown::render(file.path(projDir,"map.Rmd"))
 
+  maphtml <- readr::read_file(file.path(projDir,"map.html"))
+  #find head
+  maphtml <- stringr::str_replace(maphtml,"<head>\n",'<head>\n<base target="_parent">\n')
+
+   readr::write_file(maphtml,file.path(projDir,"map.html"))
+
+
 }
 
 
+createLipdverseMapHtml <- function(TS,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
+
+  #All datasets
+  dsn <- lipdR::pullTsVariable(TS,"dataSetName")
+  dsid <- lipdR::pullTsVariable(TS,"datasetId")
+  ui <- which(!duplicated(dsid))
+  udsn <- dsn[ui]
+  udsid <- dsid[ui]
+  lat <- lipdR::pullTsVariable(TS,"geo_latitude")[ui]
+  lon <- lipdR::pullTsVariable(TS,"geo_longitude")[ui]
+  archiveType <- lipdR::pullTsVariable(TS,"archiveType")[ui]
+  link <- glue::glue("../data/{udsid}/")
+
+  #Organize metadata for map
+  map.meta <- data.frame(dataSetName = udsn, #datasetname
+                         lat = lat,#lat
+                         lon = lon,#lon
+                         archiveType = factor(archiveType),#archiveType
+                         link = link)#Link
+
+  #save for Rmd
+  save(map.meta,file = file.path(webdir,"data","mapmeta.Rdata"))
+
+
+  #create RMd
+  file.copy(file.path(webdir,"mapOnly.Rmd"),to = file.path(webdir,"data","map.Rmd"),overwrite = TRUE)
+
+  rmarkdown::render(file.path(webdir,"data","map.Rmd"))
+
+  maphtml <- readr::read_file(file.path(webdir,"data","map.html"))
+  #find head
+  maphtml <- stringr::str_replace(maphtml,"<head>\n",'<head>\n<base target="_parent">\n')
+
+  readr::write_file(maphtml,file.path(webdir,"data","map.html"))
+
+}
+
 
 #create paleodata plots .html
-createPaleoDataPlotHtml <- function(L){
+createPaleoDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
 
   ts <- extractTs(L)
 
@@ -412,13 +454,19 @@ for(cc in 1:length(graphOrder)){#for each column..
 
 #write out the Rmd
 write_file(thisRmd,path = file.path(webdir,"data",dsid,vers_,"paleoPlots.Rmd"))
-rmarkdown::render(file.path(webdir,"data",dsid,vers_,"paleoPlots.Rmd"))
+
+check <- try(rmarkdown::render(file.path(webdir,"data",dsid,vers_,"paleoPlots.Rmd")),silent = TRUE)
+if(class(check) ==  "try-error"){
+  readr::write_file(x = " ",file = file.path(webdir,"data",dsid,vers_,"paleoPlots.html"))
+  return("Paleo plots error")
+}
+
+
 }
 
 #create chrondata plots .html
 
-#create paleodata plots .html
-createChronDataPlotHtml <- function(L){
+createChronDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
 
   dsid <- L$datasetId
   dsn <- L$dataSetName
@@ -520,18 +568,75 @@ createChronDataPlotHtml <- function(L){
 
   #write out the Rmd
   write_file(thisRmd,path = file.path(webdir,"data",dsid,vers_,"chronPlots.Rmd"))
-  rmarkdown::render(file.path(webdir,"data",dsid,vers_,"chronPlots.Rmd"))
 
+  check <- try(rmarkdown::render(file.path(webdir,"data",dsid,vers_,"chronPlots.Rmd")),silent = TRUE)
+  if(class(check) ==  "try-error"){
+    readr::write_file(x = " ",file = file.path(webdir,"data",dsid,vers_,"chronPlots.html"))
+    return("Chron error")
+  }
+
+}
+
+
+
+#wrapper to create all for a LiPD file
+createWebComponents <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
+  createSidebarHtml(L,webdir = webdir)
+  createPaleoDataPlotHtml(L,webdir = webdir)
+  try(createChronDataPlotHtml(L,webdir = webdir))
+}
+
+
+#create iframe html for data page (or just lipdverse)
+createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
+  dsid <- L$datasetId
+  dsn <- L$dataSetName
+  vers <- max(sapply(L$changelog,"[[","version"))
+  vers_ <- str_replace_all(vers,"[.]","_")
+
+  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
+
+  sidebarUrl <- "sidebar.html"
+  mapUrl <- "../../map.html"
+  paleoUrl <- "paleoPlots.html"
+  chronUrl <- "chronPlots.html"
+
+#create the components
+  createWebComponents(L,webdir = webdir)
+
+
+  #load in template iframe
+  template <- readr::read_file(file.path(webdir,"iframeTemplate.html"))
+
+  #replace terms and links
+  template <- template %>%
+    str_replace("datasetIdHere",dsid) %>%
+    str_replace("DatasetNameHere",dsn) %>%
+    str_replace("sideBarUrlHere",sidebarUrl) %>%
+    str_replace("mapUrlHere",mapUrl) %>%
+    str_replace("paleoDataGraphsUrlHere",paleoUrl) %>%
+    str_replace("chronDataGraphsUrlHere",chronUrl)
+
+  readr::write_file(template,file = file.path(webdir,"data",dsid,vers_,paste0(dsn,".html")))
+
+  writeLipd(L,path = file.path(webdir,"data",dsid,vers_))
+
+  addJsonldToHtml(htmlpath = file.path(webdir,"data",dsid,vers_,paste0(dsn,".html")),webdir = webdir)
+
+  #copy to index
+  system(glue::glue("cp {file.path(webdir,'data',dsid,vers_,paste0(dsn,'.html'))} {file.path(webdir,'data',dsid,vers_)}/index.html"))
+
+  #write dsid redirect html
+  redirect <- readr::read_file(file.path(webdir,"redirectTemplate.html")) %>%
+    str_replace("redirectUrlHere",dsPath)
+
+  readr::write_file(redirect,file = file.path(webdir,"data",dsid,"index.html"))
+
+#copy lipd to generic
+  system(glue::glue("cp {file.path(webdir,'data',dsid,vers_,dsn)}.lpd {file.path(webdir,'data',dsid,vers_)}/lipd.lpd"))
 
 }
 
 
 
 
-#create csv files.
-
-
-#wrapper to create all for a LiPD file
-
-
-#create iframe html for compilations (or just lipdverse)
