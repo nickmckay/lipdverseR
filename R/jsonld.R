@@ -413,6 +413,12 @@ createDescription <- function(L){
   }
 
   if(!noDur){
+    if(!is.numeric(old) | !is.numeric(young) ){
+      noDur <- TRUE
+    }
+  }
+
+  if(!noDur){
     durstring <- glue::glue("from {round(old)} to {round(young)} ({units})")
   }else{
     durstring <- glue::glue("described in the paper")

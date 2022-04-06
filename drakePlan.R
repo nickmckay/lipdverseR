@@ -39,7 +39,7 @@ HoloceneHydroclimate <- drake_plan(
 test <- drake_plan(
   params = buildParams("test",
                        "/Users/nicholas/Dropbox/lipdverse/testDatabase",
-                       "/Users/nicholas/Dropbox/lipdverse/html/",
+                       "/Users/nicholas/Dropbox/lipdverse/htmlTest/",
                        qcId = "1P0_e-frsQIYFLjLBiJTfouEbdIhMW7UPfYGZBnaDep0",
                        lastUpdateId = "1RbAs0qRWqvHCUfI7q_Er5UKAxRy-otRh7pdM2PKYCHw",
                        googEmail = "nick.mckay2@gmail.com",
@@ -51,8 +51,9 @@ test <- drake_plan(
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
-  data6 = createWebpages(params,data5),
-  data7 = updateGoogleQc(params,data6),
+  data6 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data6),
+  data7 = updateGoogleQc(params,data61),
   data8 = finalize(params,data7),
   changeloggingAndUpdating(params,data8)
 )
@@ -73,8 +74,9 @@ RAW <- drake_plan(
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
-  data6 = createWebpages(params,data5),
-  data7 = updateGoogleQc(params,data6),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
   data8 = finalize(params,data7),
   changeloggingAndUpdating(params,data8)
 )
@@ -106,4 +108,4 @@ CH2k <- drake_plan(
 
 
 #run it
-drake::make(CH2k,lock_envir = FALSE)
+drake::make(RAW,lock_envir = FALSE)

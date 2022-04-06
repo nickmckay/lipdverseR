@@ -18,6 +18,9 @@ getMostRecentInCompilationsTs <- function(TS){
   allCompNames <- vector(mode = "list",length=length(allComps))
   allCompVersions <- vector(mode = "list",length=length(allComps))
 
+  if(length(allComps) == 0){
+    return("none")
+  }
 
   #get all the data
   for(i in 1:length(allComps)){
@@ -45,8 +48,15 @@ getMostRecentInCompilationsTs <- function(TS){
     ind <- which(ac == comp)
     if(length(ind)==0){
       return(NA)
-    }else if(length(ind)>1){stop("multiple comp matches")}
-    allVers <- purrr::pluck(allCompVersions,ind,i)
+    }else if(length(ind) > 1){
+      allVers <- vector(mode = "list",length = length(ind))
+      for(iii in 1:length(ind)){
+        allVers[[iii]] <- purrr::pluck(allCompVersions,i,ind[iii])
+      }
+      allVers <- unlist(allVers)
+    }else{
+      allVers <- purrr::pluck(allCompVersions,ind,i)
+    }
     maxNumeric <- max(as.numeric_version(stringr::str_replace_all(allVers,pattern = "_",replacement = ".")))
     maxUnd <- stringr::str_replace_all(as.character(maxNumeric),pattern = "[.]","_")
     return(maxUnd)
@@ -61,6 +71,7 @@ getMostRecentInCompilationsTs <- function(TS){
     for(j in 1:length(thisComp)){
       cvs[j] <- stringr::str_c(thisComp[j],"-", getMaxVers(i,thisComp[j]))
     }
+    cvs <- unique(cvs)
     return(paste(cvs,collapse = ", "))
   }
 

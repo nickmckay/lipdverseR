@@ -861,19 +861,26 @@ writeVersionToRoot <- function(L){
 #'
 #' @examples
 createMarkdownChangelog <- function(L){
-  cl <- L$changelog
-  mdcl <- glue::glue("# Version history for {L$dataSetName}") %>%
-    str_c("\n\n")
-
-
-  for(i in 1:length(cl)){
-    mdcl <- mdcl %>%
-      str_c(createSingleMarkdownChangelog(cl[[i]])) %>%
+  if(is.null(L$changelog)){
+    mdcl <- glue::glue("# Version history for {L$datasetId} - {L$dataSetName}") %>%
+      str_c("\n\n") %>%
+      str_c("No changelog for {L$dataSetName}")
+  }else{
+    cl <- L$changelog
+    mdcl <- glue::glue("# Version history for {L$datasetId} - {L$dataSetName}") %>%
       str_c("\n\n")
-  }
 
-  mdcl <- stringr::str_replace_all(mdcl,pattern = "''",replacement = "NULL")
+
+    for(i in 1:length(cl)){
+      mdcl <- mdcl %>%
+        str_c(createSingleMarkdownChangelog(cl[[i]])) %>%
+        str_c("\n\n")
+    }
+
+    mdcl <- stringr::str_replace_all(mdcl,pattern = "''",replacement = "NULL")
+  }
   return(mdcl)
+
 }
 
 #' Create markdown for a single entry

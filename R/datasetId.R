@@ -28,7 +28,7 @@ updateDatasetIdDereferencer <- function(D,
   dstimestamp <- pullTsVariable(gTS,"datasetTimestamp",strict.search = TRUE)
 
 
-  info <- tibble::tibble(datasetId = dsid,
+  info <- data.frame(datasetId = dsid,
                          dataSetName = dsn,
                          datasetVersion = dsvers,
                          datasetTimestamp = dstimestamp,

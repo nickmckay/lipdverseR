@@ -264,7 +264,9 @@ loadInUpdatedData <- function(params){
 
   Dloaded <- D#store for changelogging
 
-  dsidsOriginal <- tibble::tibble(datasetId = purrr::map_chr(D,"datasetId"),dataSetNameOrig = purrr::map_chr(D,"dataSetName"))
+  dsidsOriginal <- tibble::tibble(datasetId = purrr::map_chr(D,"datasetId"),
+                                  dataSetNameOrig = purrr::map_chr(D,"dataSetName"),
+                                  dataSetVersion = purrr::map_chr(D,getVersion))
 
   #make sure that primary chronologies are named appropriately
   D <- purrr::map(D,renamePrimaryChron)
@@ -603,7 +605,9 @@ updateTsFromMergedQc <- function(params,data){
   # update file and project changelogs
   #first file changelogs
   dsidsNew <- tibble(datasetId = map_chr(nD,"datasetId"),
-                     dataSetNameNew = map_chr(nD,"dataSetName"))
+                     dataSetNameNew = map_chr(nD,"dataSetName"),
+                     dataSetVersion = purrr::map_chr(nD,getVersion))
+
 
   #figure out change notes
 
@@ -636,7 +640,114 @@ updateTsFromMergedQc <- function(params,data){
 
 }
 
-#' Create lipdversePages
+createDataPages <- function(params,data){
+  assignVariablesFromList(params)
+  assignVariablesFromList(data)
+
+  newInv <- createInventory(nD)
+  oldInv <- getInventory(lipdDir)
+
+  #find any updates to versions, or new datasets that we need to create for this
+    toCreate <- dplyr::full_join(oldInv,newInv,by = "datasetId") %>%
+      dplyr::filter(dataSetVersion.x != dataSetVersion.y |  is.na(dataSetVersion.x))
+
+  #if no changes
+  if(nrow(toCreate) == 0){
+    newData <- list(newInv = newInv,
+                    oldInv = oldInv,
+                    toCreate = toCreate)
+    data <- append(data,newData)
+    return(data)
+  }
+
+  #create new datapages for the appropriate files
+    tc <- nD[toCreate$dataSetNameNew.y]
+
+    purrr::walk(tc,createDataWebPage,webdir = webDirectory)
+
+    #pass on to the next
+    newData <- list(newInv = newInv,
+                    oldInv = oldInv,
+                    toCreate = toCreate)
+    data <- append(data,newData)
+    return(data)
+
+}
+
+
+
+#' Create lipdverse pages for this version of the project
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
+createProjectWebpages <- function(params,data){
+  assignVariablesFromList(params)
+  assignVariablesFromList(data)
+
+
+  #create this version overview page
+  createProjectOverview(nD,nTS,webDirectory,project,projVersion)
+
+
+#get only those in the compilation
+  nDic <- nD[unique(dsnInComp)]
+
+  tcdf <- data.frame(dsid = map_chr(nDic,"datasetId"),
+                     dsn = map_chr(nDic,"dataSetName"),
+                     vers = map_chr(nDic,getVersion))
+
+  #create all the project shell sites
+
+  purrr::pwalk(tcdf,
+             createProjectDataWebPage,
+             webdir = webDirectory,
+             project,
+             projVersion)
+
+  #create a project map
+  itc <- inThisCompilation(nTS,project,projVersion)
+  nnTS <- nTS[which(itc)]
+  createProjectMapHtml(nnTS,project = project,projVersion = projVersion,webdir = webDirectory)
+
+  #reassign
+  DF <- nDic
+
+    if(serialize){
+      try(createSerializations(D = DF,webDirectory,project,projVersion),silent = TRUE)
+    }
+
+    #add datasets not in compilation into DF
+    if(length(nicdi)>0){
+      DF <- append(DF,nD[nicdi])
+    }
+
+    if(length(DF) != length(nD)){
+      stop("Uh oh, you lost or gained datasets while creating the webpages")
+    }
+
+
+  TSF <- extractTs(DF)
+  #get most recent in compilations
+  mics <- getMostRecentInCompilationsTs(TSF)
+  TSF <- pushTsVariable(TSF,variable = "paleoData_mostRecentCompilations",vec = mics,createNew = TRUE)
+  sTSF <- splitInterpretationByScope(TSF)
+  qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear,compilationName = project,compVersion = projVersion)
+
+  newData <- list(TSF = TSF,
+                  sTSF = sTSF,
+                  qcF = qcF,
+                  DF = DF)
+
+  return(append(data,newData))
+
+}
+
+
+
+#' Create lipdversePages old framework
 #'
 #' @param params
 #' @param data
@@ -649,7 +760,6 @@ createWebpages <- function(params,data){
 
   #6 Update lipdverse
   if(updateWebpages){
-
     #restrict as necessary
     if(restrictWebpagesToCompilation){
       ictsi <- which(ndsn %in% dsnInComp)
@@ -827,7 +937,10 @@ changeloggingAndUpdating <- function(params,data){
                       output_file = file.path(webDirectory,project,projVersion,"changelogDetail.html"))
   }
 
-  googledrive::drive_update(media = file.path(tempdir(),"versTemp.csv"),file = googledrive::as_id(versionMetaId),name = "lipdverse versioning spreadsheet")
+
+  vt <- readr::read_csv(file.path(tempdir(),"versTemp.csv"))
+  googlesheets4::write_sheet(vt,ss = versionMetaId,sheet = 1)
+
 
   #update datasetId information
   updateDatasetIdDereferencer(DF,

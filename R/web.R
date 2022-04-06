@@ -12,6 +12,12 @@ dsid <- L$datasetId
 dsn <- L$dataSetName
 vers <- max(sapply(L$changelog,"[[","version"))
 vers_ <- str_replace_all(vers,"[.]","_")
+mric <- getMostRecentInCompilationsTs(ts) %>%
+  na.omit() %>%
+  paste(collapse = ", ") %>%
+  str_split(", ") %>%
+  pluck(1) %>%
+  unique()
 
 
 #create some strings we'll need
@@ -20,6 +26,7 @@ sidebarTitle <- glue::glue("{dsn} - v{vers}")
 dsidstr <- paste("Dataset Id:",dsid)
 dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
 lpdPath <- glue("{dsPath}/{dsn}.lpd")
+jsonPath <- glue("{dsPath}/{dsn}.jsonld")
 csvName <- glue("{dsPath}/{dsn}.csv")
 csvNameChron <- glue("{dsPath}/{dsn}-chron.csv")
 
@@ -40,6 +47,9 @@ sidebar <- sidebar %>%
   str_c(glue('<p style="margin-left: 0px"><a href="{lpdPath}">Download LiPD file</a>',sep = "\n")) %>%
   str_c("\n") %>%
   str_c("            \n") %>%
+  str_c(glue('<p style="margin-left: 0px"><a href="{jsonPath}">Download LiPD file as JSON-LD</a>',sep = "\n")) %>%
+  str_c("\n") %>%
+  str_c("            \n") %>%
   str_c(glue('<p style="margin-left: 0px"><a href="http://lipd.net/playground?source={lpdPath}">Edit LiPD file</a>',sep = "\n")) %>%
   str_c("\n") %>%
   str_c("            \n") %>%
@@ -50,14 +60,33 @@ sidebar <- sidebar %>%
 
 if(length(L$chronData) > 0){
   sidebar <- sidebar %>%
-    str_c(glue('<p style="margin-left: 0px"><a href="{csvNameChron}">Download ChronData onle (csv)</a>',sep = "\n")) %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="{csvNameChron}">Download ChronData only (csv)</a>',sep = "\n")) %>%
     str_c("\n") %>%
     str_c("            \n")
 }
 
 sidebar <- sidebar %>%
+  str_c(glue('<p style="margin-left: 0px"><a href="changelog.html">Dataset changelog</a>',sep = "\n")) %>%
+  str_c("\n") %>%
+  str_c("            \n") %>%
   str_c('<p style="margin-left: 0px"><a href="https://github.com/nickmckay/LiPDverse/issues">Report an issue (include datasetId and version)</a>',sep = "\n") %>%
-  str_c("\n")
+  str_c("\n") %>%
+  str_c('<p style="margin-left: 0px"><strong>In compilations:</strong> (only most recent versions are shown)</p>\n') %>%
+str_c("\n")
+
+
+if(length(mric) > 0){
+  for(ic in 1:length(mric)){
+    sidebar <-  sidebar %>%
+      str_c(glue('<p style="margin-left: 0px"><a href="https://lipdverse.org/{stringr::str_replace(mric[ic],"-","/")}">{mric[ic]}</a>',sep = "\n")) %>%
+      str_c("\n")
+  }
+}else{
+  sidebar <-  sidebar %>%
+    str_c(glue('<p style="margin-left: 0px">none</p>',sep = "\n")) %>%
+    str_c("\n")
+}
+
 
 
 
@@ -582,8 +611,9 @@ createChronDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
 #wrapper to create all for a LiPD file
 createWebComponents <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
   createSidebarHtml(L,webdir = webdir)
-  createPaleoDataPlotHtml(L,webdir = webdir)
+  try(createPaleoDataPlotHtml(L,webdir = webdir))
   try(createChronDataPlotHtml(L,webdir = webdir))
+
 }
 
 
@@ -620,8 +650,19 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
   readr::write_file(template,file = file.path(webdir,"data",dsid,vers_,paste0(dsn,".html")))
 
   writeLipd(L,path = file.path(webdir,"data",dsid,vers_))
+  writeLipd(L,path = file.path(webdir,"data",dsid,vers_),jsonOnly = TRUE)
+
+  if(is.null(L$changelog)){
+    L <- initializeChangelog(L)
+  }
 
   addJsonldToHtml(htmlpath = file.path(webdir,"data",dsid,vers_,paste0(dsn,".html")),webdir = webdir)
+
+  #write changelog html
+  clpath <- file.path(webdir,'data',dsid,vers_,'changelog.md')
+  clmd <- createMarkdownChangelog(L)
+  readr::write_file(clmd,file = clpath)
+  rmarkdown::render(clpath)
 
   #copy to index
   system(glue::glue("cp {file.path(webdir,'data',dsid,vers_,paste0(dsn,'.html'))} {file.path(webdir,'data',dsid,vers_)}/index.html"))
@@ -634,7 +675,163 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
 #copy lipd to generic
   system(glue::glue("cp {file.path(webdir,'data',dsid,vers_,dsn)}.lpd {file.path(webdir,'data',dsid,vers_)}/lipd.lpd"))
+  system(glue::glue("cp {file.path(webdir,'data',dsid,vers_,dsn)}.jsonld {file.path(webdir,'data',dsid,vers_)}/lipd.jsonld"))
 
+}
+
+
+createProjectDataWebPage <- function(dsid,
+                                     dsn,
+                                     vers,
+                                     webdir = "/Volumes/data/Dropbox/lipdverse/html",
+                                     project,
+                                     projVersion){
+
+  vers_ <- str_replace_all(vers,"[.]","_")
+
+  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
+  projPath <- file.path(webdir,project,projVersion)
+
+  sidebarUrl <- file.path(dsPath,"sidebar.html")
+  mapUrl <- "map.html"
+  paleoUrl <- file.path(dsPath,"paleoPlots.html")
+  chronUrl <- file.path(dsPath,"chronPlots.html")
+
+  #load in template iframe
+  template <- readr::read_file(file.path(webdir,"iframeTemplate.html"))
+
+  #replace terms and links
+  template <- template %>%
+    str_replace("datasetIdHere",dsid) %>%
+    str_replace("DatasetNameHere",glue("{dsn} - {project}")) %>%
+    str_replace("sideBarUrlHere",sidebarUrl) %>%
+    str_replace("mapUrlHere",mapUrl) %>%
+    str_replace("paleoDataGraphsUrlHere",paleoUrl) %>%
+    str_replace("chronDataGraphsUrlHere",chronUrl)
+
+  readr::write_file(template,file = file.path(projPath,paste0(dsn,".html")))
+
+
+}
+
+#' Create an inventory data.frame
+#'
+#' @param D a multi-lipd object
+#' @importFrom purrr map_chr
+#' @return a data.frame
+#' @export
+createInventory <- function(D){
+  inv <- data.frame(datasetId = purrr::map_chr(D,"datasetId"),
+                    dataSetNameNew = purrr::map_chr(D,"dataSetName"),
+                    dataSetVersion = purrr::map_chr(D,getVersion))
+
+  return(inv)
+}
+
+#' Get the lipdverse inventory
+#'
+#' @param lipdDir the lipd directory of the database
+#' @importFrom glue glue
+#' @importFrom googledrive drive_find
+#' @importFrom googlesheets4 read_sheet
+#' @return a data.frame
+#' @export
+getInventory <- function(lipdDir){
+  invName <- paste0(basename(lipdDir),"-inventory")
+  smatch <- googledrive::drive_find(pattern = invName,n_max = 1)
+  ss <- smatch$id
+  return(googlesheets4::read_sheet(ss = ss,sheet = "inventory"))
+}
+
+#' Update the lipdverse inventory
+#'
+#' @param newInv the updated inventory data frame
+#' @param lipdDir the lipd directory of the database
+#' @importFrom glue glue
+#' @importFrom googledrive drive_find
+#' @importFrom googlesheets4 sheet_write
+#' @export
+updateInventory <- function(newInv,lipdDir){
+  invName <- paste0(basename(lipdDir),"-inventory")
+  smatch <- googledrive::drive_find(pattern = invName,n_max = 1)
+  if(nrow(smatch) == 0){
+    stop(glue::glue("No matches for {invName}, perhaps you need to use createInventory()?"))
+  }
+  ss <- smatch$id
+  googlesheets4::sheet_write(ss = ss,newInv,sheet = "inventory")
+}
+
+#' Create a new inventory file on google drive
+#'
+#' @importFrom googlesheets4 gs4_create
+#' @param newInv a inventory data frame
+#' @param lipdDir the lipd directory of the database
+#' @export
+createInventoryGoogle <- function(newInv,lipdDir){
+  invName <- paste0(basename(lipdDir),"-inventory")
+  googlesheets4::gs4_create(name = invName,sheets = "inventory")
+}
+
+createProjectOverview <- function(D,TS,webDirectory,project,version){
+  #if there's no html directory, create one
+  if(!dir.exists(file.path(webDirectory,project))){
+    dir.create(file.path(webDirectory,project))
+  }
+
+  if(!dir.exists(file.path(webDirectory,project,version))){
+    dir.create(file.path(webDirectory,project,version))
+  }
+
+
+  sTS <- lipdR::splitInterpretationByScope(TS)
+
+  save(list = c("D","TS","sTS"),file = file.path(webDirectory,project,version,str_c(project,version,".RData")))
+  save(list = c("D","TS","sTS"),file = file.path(webDirectory,"temp.RData"))
+
+  #remove columns we don't want to plot
+  varNames <- sapply(TS, "[[","paleoData_variableName")
+
+  #All datasets
+  dsn <- lipdR::pullTsVariable(TS,"dataSetName")
+  ui <- which(!duplicated(dsn))
+  udsn <- dsn[ui]
+  lat <- lipdR::pullTsVariable(TS,"geo_latitude")[ui]
+  lon <- lipdR::pullTsVariable(TS,"geo_longitude")[ui]
+  if("geo_elevation" %in% varNames){
+    elev <- lipdR::pullTsVariable(TS,"geo_elevation")[ui]
+  }else{
+    elev <- matrix(NA, nrow = length(lat))
+
+  }
+  archiveType <- lipdR::pullTsVariable(TS,"archiveType")[ui]
+  link <- paste0(udsn,".html") %>%
+    str_replace_all("'","_")
+
+
+  if(is.list(elev)){
+    ge <- which(!sapply(elev,is.null))
+    ne <- rep(NA,length(elev))
+    ne[ge] <- as.numeric(unlist(elev))
+    elev <- ge
+  }
+
+  #Organize metadata for map
+  map.meta <- data.frame(dataSetName = udsn, #datasetname
+                         lat = lat,#lat
+                         lon = lon,#lon
+                         # elev = elev,#elevation
+                         archiveType = factor(archiveType),#archiveType
+                         link = link)#Link
+
+  #make project Rmd
+  createProjectRmd(webDirectory,project, version )
+
+  rmarkdown::render(file.path(webDirectory,project,version,"index.Rmd"))
+  #add google tag
+  tag <- readLines(file.path(webDirectory,"gatag.html"))
+
+  message <- addGoogleTracker(file.path(webDirectory,project,version,"index.html"),tag)
+  message2 <- addLogoLink(file.path(webDirectory,project,version,"index.html"),link = "https://lipdverse.org")
 }
 
 
