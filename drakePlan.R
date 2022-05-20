@@ -30,8 +30,9 @@ HoloceneHydroclimate <- drake_plan(
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
-  data6 = createWebpages(params,data5),
-  data7 = updateGoogleQc(params,data6),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
   data8 = finalize(params,data7),
   changeloggingAndUpdating(params,data8)
   )
@@ -43,7 +44,9 @@ test <- drake_plan(
                        qcId = "1P0_e-frsQIYFLjLBiJTfouEbdIhMW7UPfYGZBnaDep0",
                        lastUpdateId = "1RbAs0qRWqvHCUfI7q_Er5UKAxRy-otRh7pdM2PKYCHw",
                        googEmail = "nick.mckay2@gmail.com",
+                       recreateDataPages = TRUE,
                        updateWebpages = TRUE,
+                       serialize = TRUE,
                        standardizeTerms = FALSE),
   updateNeeded = checkIfUpdateNeeded(params),
   data1 = loadInUpdatedData(params),
@@ -51,8 +54,8 @@ test <- drake_plan(
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
-  data6 = createDataPages(params,data5),
-  data61 = createProjectWebpages(params,data6),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
   data7 = updateGoogleQc(params,data61),
   data8 = finalize(params,data7),
   changeloggingAndUpdating(params,data8)
@@ -100,12 +103,37 @@ CH2k <- drake_plan(
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
-  data6 = createWebpages(params,data5),
-  data7 = updateGoogleQc(params,data6),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
+Temp12k <- drake_plan(
+  params = buildParams("Temp12k",
+                       "/Volumes/data/Dropbox/lipdverse/database/",
+                       "/Volumes/data/Dropbox/lipdverse/html/",
+                       qcId = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",
+                       lastUpdateId = "1qLRMCfDMbTyffJBWlIj3Zw4CAhJY2SECIY-ckcZ2Wak",
+                       googEmail = "nick.mckay2@gmail.com",
+                       updateWebpages = TRUE,
+                       ageOrYear = "age",
+                       standardizeTerms = TRUE,
+                       serialize = TRUE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2 = getQcInfo(params,data1),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
   data8 = finalize(params,data7),
   changeloggingAndUpdating(params,data8)
 )
 
 
 #run it
-drake::make(RAW,lock_envir = FALSE)
+drake::make(test,lock_envir = FALSE)

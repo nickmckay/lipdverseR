@@ -64,6 +64,7 @@ createChangelog <- function(Lold,
                                           "notes",
                                           "originalDataUrl"),
                             exclude.paleo = c("paleoData_meanValue12k",
+                                              "paleoData_mostRecentCompilations",
                                               "paleoData_medianRes12k",
                                               "paleoData_tableName",
                                               "paleoData_values"),
@@ -756,6 +757,58 @@ updateChangelog <- function(L,
 
   #update the changes
   L$changelog <- append(list(thisChange),L$changelog)
+
+  return(L)
+
+}
+
+
+#' Update the changelog entry in a LiPD file with new changes
+#'
+#' @param L
+#' @param changelog
+#' @param version
+#' @param notes
+#' @param curator
+#' @param timestamp
+#'
+#' @return
+#' @export
+createNewChangelog <- function(L,
+                            version = NA,
+                            notes = NA,
+                            curator = Sys.info()[["user"]],
+                            timestamp = lubridate::now(tzone = "UTC")){
+
+  if(!is.null(L$changelog)){#no changes, don't write
+    stop("Changelog already exists, use updateChangelog()")
+  }
+
+  #get the comparison version
+  lastVers <- "none"
+  vers <- "0.0.0"
+
+changelist <- list("Starting new changelog")
+
+
+  if(!is.na(notes)){#add in notes if present
+    thisChange <- list(version = as.character(vers),
+                       lastVersion = as.character(lastVers),
+                       curator = curator,
+                       timestamp = paste(timestamp,tz(timestamp)),
+                       notes = notes,
+                       changes =  changelist)
+  }else{
+    #create this instance of the changelog
+    thisChange <- list(version = as.character(vers),
+                       lastVersion = as.character(lastVers),
+                       curator = curator,
+                       timestamp = paste(timestamp,tz(timestamp)),
+                       changes =  changelist)
+  }
+
+  #update the changes
+  L$changelog <- list(thisChange)
 
   return(L)
 

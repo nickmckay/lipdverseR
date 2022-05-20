@@ -201,6 +201,7 @@ buildParams <- function(project,
                updateWebpages = TRUE,
                standardizeTerms = TRUE,
                ageOrYear = "age",
+               recreateDataPages = FALSE,
                restrictWebpagesToCompilation = TRUE,
                serialize = TRUE,
                projVersion = NA){
@@ -645,25 +646,52 @@ createDataPages <- function(params,data){
   assignVariablesFromList(data)
 
   newInv <- createInventory(nD)
-  oldInv <- getInventory(lipdDir)
+  oldInv <- getInventory(lipdDir,googEmail)
 
   #find any updates to versions, or new datasets that we need to create for this
+  if(recreateDataPages){
+
+    toCreate <- dplyr::full_join(oldInv,newInv,by = "datasetId")
+    toUpdate <- data.frame()
+  }else{#only create what's changed
+
+
+
+
+
     toCreate <- dplyr::full_join(oldInv,newInv,by = "datasetId") %>%
       dplyr::filter(dataSetVersion.x != dataSetVersion.y |  is.na(dataSetVersion.x))
 
-  #if no changes
-  if(nrow(toCreate) == 0){
-    newData <- list(newInv = newInv,
-                    oldInv = oldInv,
-                    toCreate = toCreate)
-    data <- append(data,newData)
-    return(data)
+
+    #update pages for data in compilation, but that didn't change
+
+    toUpdate <- dplyr::full_join(oldInv,newInv,by = "datasetId") %>%
+      dplyr::filter(dataSetVersion.x == dataSetVersion.y &  !is.na(dataSetVersion.x))
+
   }
 
-  #create new datapages for the appropriate files
-    tc <- nD[toCreate$dataSetNameNew.y]
+    if(nrow(toUpdate) > 0 & nrow(toCreate) > 0){#check to make sure were good, if need be
+      #make sure distinct from create
+      if(any(toCreate$datasetId %in% toUpdate$datasetId)){
+        stop("Data pages to create and update are not distinct (and they should be)")
+      }
+    }
 
-    purrr::walk(tc,createDataWebPage,webdir = webDirectory)
+    #if  changes
+    if(nrow(toCreate) > 0){
+      #create new datapages for the appropriate files
+      tc <- nD[toCreate$dataSetNameNew.y]
+      purrr::walk(tc,createDataWebPage,webdir = webDirectory)
+    }
+
+    #if  changes
+    if(nrow(toUpdate) > 0){
+      #create new datapages for the appropriate files
+      tu <- nD[toUpdate$dataSetNameNew.y]
+      purrr::walk(tu,updateDataWebPageForCompilation,webdir = webDirectory)
+    }
+
+
 
     #pass on to the next
     newData <- list(newInv = newInv,
@@ -689,7 +717,12 @@ createProjectWebpages <- function(params,data){
 
 
   #create this version overview page
-  createProjectOverview(nD,nTS,webDirectory,project,projVersion)
+  createProjectSidebarHtml(project, projVersion,webDirectory)
+  createProjectOverviewPage(project,projVersion,webDirectory)
+
+  #update lipdverse overview page
+  createProjectSidebarHtml("lipdverse", "current_version",webDirectory)
+  createProjectOverviewPage("lipdverse", "current_version",webDirectory)
 
 
 #get only those in the compilation
@@ -712,11 +745,25 @@ createProjectWebpages <- function(params,data){
   nnTS <- nTS[which(itc)]
   createProjectMapHtml(nnTS,project = project,projVersion = projVersion,webdir = webDirectory)
 
+
+  #create lipdverse project pages
+  purrr::pwalk(tcdf,
+               createProjectDataWebPage,
+               webdir = webDirectory,
+               project = "lipdverse",
+               projVersion = "current_version")
+
+  #update lipdverse map
+  createProjectMapHtml(nTS,project = "lipdverse",projVersion = "current_version",webdir = webDirectory)
+
+
   #reassign
   DF <- nDic
 
-    if(serialize){
-      try(createSerializations(D = DF,webDirectory,project,projVersion),silent = TRUE)
+  if(serialize){
+    try(createSerializations(D = DF,webDirectory,project,projVersion),silent = TRUE)
+    try(createSerializations(D = nD,webDirectory,"lipdverse","current_version"),silent = TRUE)
+
     }
 
     #add datasets not in compilation into DF
@@ -918,7 +965,17 @@ changeloggingAndUpdating <- function(params,data){
   assignVariablesFromList(data)
 
   #write project changelog
-  Dpo <- readLipd(file.path(webDirectory,project,lastVersionNumber))
+
+  #get last project's data. Try serialiation first:
+  lastSerial <- try(load(file.path(webDirectory,project,lastVersionNumber,paste0(project,lastVersionNumber,".RData"))),silent = TRUE)
+
+  if(!class(lastSerial) == "try-error"){
+    Dpo <- D
+  }else{#try to load from lipd
+    Dpo <- readLipd(file.path(webDirectory,project,lastVersionNumber))
+  }
+
+
   if(length(Dpo)>0){
     createProjectChangelog(Dold = Dpo,
                            Dnew = DF,
@@ -993,10 +1050,21 @@ createSerializations <- function(D,
   sTS <- splitInterpretationByScope(TS)
   save(list = c("D","TS","sTS"),file = file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".RData")))
 
+  #write files to a temporary directory
+  lpdtmp <- file.path(tempdir(),"lpdTempSerialization")
+  unlink(lpdtmp,recursive = TRUE)
+  dir.create(lpdtmp)
+
+  writeLipd(D,path = lpdtmp)
+
+
+#zip it
+  zip(zipfile = file.path(webDirectory,project,projVersion,str_c(project,projVersion,".zip")),files = list.files(lpdtmp,pattern= "*.lpd",full.names = TRUE))
+
 
   #matlab
   mfile <- stringr::str_c("addpath(genpath('",matlabUtilitiesPath,"'));\n") %>%
-    stringr::str_c("D = readLiPD('",file.path(webDirectory,project,projVersion),"');\n") %>%
+    stringr::str_c("D = readLiPD('",lpdtmp,"');\n") %>%
     stringr::str_c("TS = extractTs(D);\n") %>%
     stringr::str_c("sTS = splitInterpretationByScope(TS);\n") %>%
     stringr::str_c("save ",file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".mat")),' D TS sTS\n') %>%
@@ -1012,7 +1080,7 @@ createSerializations <- function(D,
   #Python
   pyfile <- "import lipd\n" %>%
     stringr::str_c("import pickle\n") %>%
-    stringr::str_c("D = lipd.readLipd('",file.path(webDirectory,project,projVersion),"/')\n") %>%
+    stringr::str_c("D = lipd.readLipd('",lpdtmp,"/')\n") %>%
     stringr::str_c("TS = lipd.extractTs(D)\n") %>%
     stringr::str_c("filetosave = open('",file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".pkl'")),",'wb')\n") %>%
     stringr::str_c("all_data = {}\n") %>%

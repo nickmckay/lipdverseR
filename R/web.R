@@ -1,5 +1,100 @@
 #create files for new web structure
 
+createProjectOverviewPage <- function(project,
+                                      projVersion,
+                                     webdir = "/Volumes/data/Dropbox/lipdverse/html"){
+
+  vers_ <- str_replace_all(projVersion,"[.]","_")
+
+  projPath <- file.path(webdir,project,projVersion)
+
+  projTitle <- paste(project,"-",projVersion)
+
+  sidebarUrl <- "projectSidebar.html"
+  mapUrl <- "map.html"
+
+  #load in template iframe
+  template <- readr::read_file(file.path(webdir,"iframeTemplateProject.html"))
+
+  #replace terms and links
+  template <- template %>%
+    str_replace("ProjectNameHere",projTitle) %>%
+    str_replace("sideBarUrlHere",sidebarUrl) %>%
+    str_replace("mapUrlHere",mapUrl)
+
+  readr::write_file(template,file = file.path(projPath,"index.html"))
+
+
+}
+
+
+#create project sidebar meta .html
+createProjectSidebarHtml <- function(project, vers, webdir = "/Volumes/data/Dropbox/lipdverse/html"){
+
+
+  vers_ <- str_replace_all(vers,"[.]","_")
+
+  #create some strings we'll need
+
+  sidebarTitle <- glue::glue("{project} - {vers}")
+  filePath <- paste0(project,vers)
+  zipPath <- paste0(filePath,".zip")
+  rPath <- paste0(filePath,".RData")
+  matlabPath <- paste0(filePath,".mat")
+  pythonPath <- paste0(filePath,".pkl")
+
+  #add copy/paste code block
+
+  #prep and
+  sidebar <- '<head>\n
+<base target="_PARENT">\n
+</head>\n'
+
+
+  #html sidebar
+  sidebar <- sidebar %>%
+    str_c('<div class="sidenav"> \n') %>%
+    str_c(glue('<h2>{sidebarTitle}</h2>',sep = "\n")) %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="{zipPath}">Download all LiPD files</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="{rPath}">Download R serialization</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="{matlabPath}">Download Matlab serialization</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="{pythonPath}">Download python (pickle) serialization</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="https://github.com/nickmckay/LiPDverse/issues">Report an issue (include project name)</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+    str_c("            \n")
+
+
+  if(project != "lipdverse"){
+    sidebar <- sidebar %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="changelogSummary.html">View summary changelog</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="changelogDetail.html">View detailed changelog</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+      str_c("            \n")
+  }
+
+  ######END METADATA!!!!############################
+  sidebar <- sidebar %>%
+    str_c("</div>")
+
+
+  if(!dir.exists(file.path(webdir,project,vers_))){
+    dir.create(file.path(webdir,project,vers_),recursive = TRUE)
+  }
+  write_file(sidebar,file = file.path(webdir,project,vers_,"projectSidebar.html"))
+
+
+
+}
 
 #create sidebarmeta .html
 createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
@@ -24,11 +119,13 @@ mric <- getMostRecentInCompilationsTs(ts) %>%
 
 sidebarTitle <- glue::glue("{dsn} - v{vers}")
 dsidstr <- paste("Dataset Id:",dsid)
-dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
+dsPath <- glue("../../../{dsid}/{vers_}/")
 lpdPath <- glue("{dsPath}/{dsn}.lpd")
 jsonPath <- glue("{dsPath}/{dsn}.jsonld")
 csvName <- glue("{dsPath}/{dsn}.csv")
 csvNameChron <- glue("{dsPath}/{dsn}-chron.csv")
+
+#add copy/paste code block
 
 
 #prep and setup widget
@@ -403,18 +500,30 @@ for(cc in 1:length(plotOrder)){#for each column..
   outdf[1,cc] <- ts[[plotOrder[cc]]]$paleoData_TSid
   outdf[2:lengths[plotOrder[cc]],cc] <- ts[[plotOrder[cc]]]$paleoData_values
   if(max(paleoNum) == 1  & max(tableNum) == 1){
-    names(outdf)[cc] <-str_c(ts[[plotOrder[cc]]]$paleoData_variableName," (",ts[[plotOrder[cc]]]$paleoData_units,")")
+    names(outdf)[cc] <- str_c(ts[[plotOrder[cc]]]$paleoData_variableName," (",ts[[plotOrder[cc]]]$paleoData_units,")")
   }else{
     names(outdf)[cc] <-str_c(ts[[plotOrder[cc]]]$paleoData_variableName," (",ts[[plotOrder[cc]]]$paleoData_units,") [",as.character(ts[[plotOrder[cc]]]$paleoNumber),"-",as.character(ts[[plotOrder[cc]]]$tableNumber),"]")
   }
 
   #check seasonality
-  thisSeason <- ts[[plotOrder[cc]]]$interpretation1_seasonality
+  thisSeason <- as.character(ts[[plotOrder[cc]]]$interpretation1_seasonality)
   if(!is.null(thisSeason)){
-    names(outdf)[cc] <- str_c(names(outdf)[cc]," - ",thisSeason)
+    if(length(thisSeason) > 0){
+      if(is.character(thisSeason) & !is.na(thisSeason)){
+        names(outdf)[cc] <- str_c(names(outdf)[cc]," - ",thisSeason)
+      }
+    }
   }
   print(names(outdf)[cc])
 }
+outnames <- names(outdf)
+
+if(any(is.na(outnames))){
+  ina <- which(is.na(outnames))
+  outnames[ina] <- "Missing name"
+}
+
+names(outdf) <- outnames
 
 if(!dir.exists(file.path(webdir,"data",dsid,vers_))){
   dir.create(file.path(webdir,"data",dsid,vers_),recursive = TRUE)
@@ -624,10 +733,10 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
   vers <- max(sapply(L$changelog,"[[","version"))
   vers_ <- str_replace_all(vers,"[.]","_")
 
-  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
+  dsPath <- glue("../../{dsid}/{vers_}/")
 
   sidebarUrl <- "sidebar.html"
-  mapUrl <- "../../map.html"
+  mapUrl <- "../../../lipdverse/current_version/map.html"
   paleoUrl <- "paleoPlots.html"
   chronUrl <- "chronPlots.html"
 
@@ -636,7 +745,7 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
 
   #load in template iframe
-  template <- readr::read_file(file.path(webdir,"iframeTemplate.html"))
+  template <- readr::read_file(file.path(webdir,"iframeTemplateData.html"))
 
   #replace terms and links
   template <- template %>%
@@ -680,6 +789,32 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 }
 
 
+updateDataWebPageForCompilation <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
+  dsid <- L$datasetId
+  dsn <- L$dataSetName
+  vers <- max(sapply(L$changelog,"[[","version"))
+  vers_ <- str_replace_all(vers,"[.]","_")
+
+  if(!file.exists(file.path(webdir,"data",dsid,"index.html"))){
+    stop(glue::glue('It looks like {file.path(webdir,"data",dsid,"index.html")} does not exist. Perhaps you should usecreateDataWebPage()?'))
+  }
+
+  dsPath <- glue("../../{dsid}/{vers_}/")
+
+  sidebarUrl <- "sidebar.html"
+  mapUrl <- "../../map.html"
+  paleoUrl <- "paleoPlots.html"
+  chronUrl <- "chronPlots.html"
+
+  #create the new sidebar
+  createSidebarHtml(L,webdir = webdir)
+
+  #update the LiPD files
+  writeLipd(L,path = file.path(webdir,"data",dsid,vers_))
+  writeLipd(L,path = file.path(webdir,"data",dsid,vers_),jsonOnly = TRUE)
+}
+
+
 createProjectDataWebPage <- function(dsid,
                                      dsn,
                                      vers,
@@ -689,7 +824,7 @@ createProjectDataWebPage <- function(dsid,
 
   vers_ <- str_replace_all(vers,"[.]","_")
 
-  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
+  dsPath <- glue("../../data/{dsid}/{vers_}/")
   projPath <- file.path(webdir,project,projVersion)
 
   sidebarUrl <- file.path(dsPath,"sidebar.html")
@@ -703,7 +838,7 @@ createProjectDataWebPage <- function(dsid,
   #replace terms and links
   template <- template %>%
     str_replace("datasetIdHere",dsid) %>%
-    str_replace("DatasetNameHere",glue("{dsn} - {project}")) %>%
+    str_replace("DatasetNameHere",glue("{dsn} - {project} - {projVersion}")) %>%
     str_replace("sideBarUrlHere",sidebarUrl) %>%
     str_replace("mapUrlHere",mapUrl) %>%
     str_replace("paleoDataGraphsUrlHere",paleoUrl) %>%
@@ -736,10 +871,12 @@ createInventory <- function(D){
 #' @importFrom googlesheets4 read_sheet
 #' @return a data.frame
 #' @export
-getInventory <- function(lipdDir){
+getInventory <- function(lipdDir,googEmail){
   invName <- paste0(basename(lipdDir),"-inventory")
+  #googledrive::drive_auth(email = googEmail)
   smatch <- googledrive::drive_find(pattern = invName,n_max = 1)
   ss <- smatch$id
+  #googlesheets4::sheets_auth(email = googEmail)
   return(googlesheets4::read_sheet(ss = ss,sheet = "inventory"))
 }
 

@@ -135,12 +135,12 @@ pub3_doi,pub3_doi,character
 pub3_year,pub3_year,numeric
 temp12kUncertainty,paleoData_temperature12kUncertainty,character
 wNAmUncertainty,paleoData_wNAmUncertainty,character
-coralHydro2kGroup,paleoData_coralHydro2kGroup,character
+coralHydro2kGroup,paleoData_coralHydro2kGroup,numeric
 secondarySiteName,geo_secondarySiteName,character
 ocean,geo_ocean,character
 ocean2,geo_ocean2,character
 nominalResolution,hasResolution_nominal,character
 hasUncertainty,paleoData_hasUncertainty,character
-isComposite,paleoData_isComposite,character
+isComposite,paleoData_isComposite,numeric
 coreName,paleoData_coreName,character
 additionalDataUrl,additionalDataUrl,character
