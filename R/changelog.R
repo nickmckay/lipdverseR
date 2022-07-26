@@ -372,8 +372,6 @@ createChangelog <- function(Lold,
       }
     }
 
-
-
     # compare the paleoData_values --------------------------------------------
     for(i in 1:nrow(tn)){
       tov <- to$paleoData_values[[i]]
@@ -381,14 +379,25 @@ createChangelog <- function(Lold,
       tnv <- tn$paleoData_values[[i]]
       tnv[is.na(tnv)] <- -999
 
-      if(!all(tov == tnv)){
+
+      if(length(tov) != length(tnv)){
         tsi <- tn$paleoData_TSid[i]
         tsname <- tn$paleoData_variableName[i]
         cl <- c(cl,
-                glue::glue("{tsname} ({tsi}): The paleoData_values have changed"))
+                glue::glue("{tsname} ({tsi}): The size of the paleoData_values have changed, from {length(tov)} to {length(tnv)} entries."))
         ct <- c(ct,"PaleoData values")
         cv <- c(cv,"paleoData_values")
+      }else{
+        if(!all(tov == tnv)){
+          tsi <- tn$paleoData_TSid[i]
+          tsname <- tn$paleoData_variableName[i]
+          cl <- c(cl,
+                  glue::glue("{tsname} ({tsi}): The paleoData_values have changed"))
+          ct <- c(ct,"PaleoData values")
+          cv <- c(cv,"paleoData_values")
+        }
       }
+
     }
 
   }
@@ -640,15 +649,26 @@ createChangelog <- function(Lold,
       tov[is.na(tov)] <- -999
       tnv <- tn$chronData_values[[i]]
       tnv[is.na(tnv)] <- -999
-      if(!all(tov == tnv)){
+
+
+      if(length(tov) != length(tnv)){
         tsi <- tn$chronData_TSid[i]
         tsname <- tn$chronData_variableName[i]
         cl <- c(cl,
-                glue::glue("{tsname} ({tsi}): The chronData_values have changed"))
+                glue::glue("{tsname} ({tsi}): The size of the chronData_values have changed, from {length(tov)} to {length(tnv)} entries."))
         ct <- c(ct,"ChronData values")
         cv <- c(cv,"chronData_values")
-
+      }else{
+        if(!all(tov == tnv)){
+          tsi <- tn$chronData_TSid[i]
+          tsname <- tn$chronData_variableName[i]
+          cl <- c(cl,
+                  glue::glue("{tsname} ({tsi}): The chronData_values have changed"))
+          ct <- c(ct,"ChronData values")
+          cv <- c(cv,"chronData_values")
+        }
       }
+
     }
 
   }
