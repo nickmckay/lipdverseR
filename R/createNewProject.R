@@ -1,8 +1,8 @@
 createNewLipdverseProject <- function(){
 #create new project
-proj <- "Hydro21k"
-init.vers <- "0_1_0"
-lipd.dir <- "/Users/nicholas/Dropbox/lipdverse/database/"
+proj <- "Pages2kTemperature"
+init.vers <- "2_1_0"
+lipd.dir <- "/Users/nicholas/Dropbox/lipdverse/Pages2kTemperature/"
 web.dir <- "/Users/nicholas/Dropbox/lipdverse/html/"
 versionMetaId <-  "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY"
 googEmail <-  "nick.mckay2@gmail.com"
@@ -44,12 +44,16 @@ nicdi <- which(!names(D) %in% dsnInComp)
       stop("didn't find any datasets in the compilation for the webpage")
     }
   }else{
-    ictsi <- seq_along(nTS)
-    icdi <- seq_along(nD)
+    ictsi <- seq_along(sTS)
+    icdi <- seq_along(D)
     nicdi <- NULL
   }
 
 if(makeWebpages){
+  newInv <- createInventory(nD)
+  oldInv <- getInventory(lipdDir,googEmail)
+  #if doesn' exist create the inventory
+
   createProjectDashboards(D[icdi],TS[ictsi],web.dir,proj,init.vers)
 
   #load back in files
@@ -79,7 +83,7 @@ if(makeWebpages){
   googledrive::drive_auth(email = googEmail,cache = ".secret")
 
 #create a qc sheet
-  qcsheet <- createQCdataFrame(nsTS,templateId = templateId,ageOrYear = "age",compilationName = proj,compVersion = init.vers)
+  qcsheet <- createQCdataFrame(nsTS,templateId = templateId,ageOrYear = "year",compilationName = proj,compVersion = init.vers)
 
 #create a google qc sheet
 createNewQCSheet(qcsheet,stringr::str_c(proj," v.",init.vers," QC sheet"))

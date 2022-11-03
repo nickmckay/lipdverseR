@@ -202,7 +202,7 @@ plot.name <- thisTS[[ind]][[stringr::str_c(mode,"Data_variableName")]]
     plot.name <- stringr::str_c(thisTS[[ind]][[stringr::str_c(mode,"Data_proxy")]]," - ",thisTS[[ind]][[stringr::str_c(mode,"Data_variableName")]])
   }
 
-  dy.plot <- dygraph(df, main = plot.name) %>%
+  dy.plot <- dygraph(df, main = plot.name,width = "100%") %>%
     dyAxis("x", drawGrid = FALSE, label = timeUnits) %>%
     dyAxis("y", label = names(df)[2]) %>%
     dyOptions(includeZero = FALSE,
@@ -250,7 +250,7 @@ writeCollapsibleChunks <- function(thisRmd,thisTS = thisTS,name = "pub",vars = c
 
   for(j in 1:length(these.vars)){
     if(!is.null(thisTS[[tsi]][[these.vars[j]]])){
-      if(!is.na(thisTS[[tsi]][[these.vars[j]]])){#skip it if it's not there
+      if(!all(is.na(thisTS[[tsi]][[these.vars[j]]]))){#skip it if it's not there
         #add in the metadata
         thisRmd <- str_c(thisRmd,str_c('<p style="margin-left: ',as.character(indent),'px"><strong>',vars[j],": </strong>",thisTS[[tsi]][these.vars[j]]),sep = "\n")
       }
