@@ -14,7 +14,7 @@ derivedMetadata <- function(age,year,...){
   out <- tibble::tibble(
     minAge = min(age,na.rm = TRUE),
     maxAge = max(age,na.rm = TRUE),
-    medianResolution = median(diff(na.omit(age)),na.rm = TRUE)
+    medianResolution = median(abs(diff(na.omit(age)),na.rm = TRUE))
   )
   return(out)
 }
