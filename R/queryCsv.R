@@ -130,7 +130,11 @@ createQueryCsv <- function(D){
     purrr::map_chr(function(x) paste0(unlist(x[!is.na(x)]), collapse = '|'))
 
 
-  keeps <- c("archiveType", "paleoData_variableName", "paleoData_units","paleoData_proxy", "geo_latitude", "geo_longitude","geo_elevation", "minAge", "maxAge","medianResolution", "auth", "datasetId", "dataSetName", "country", "continent","varTags", "interp_Vars", "interp_Details", "paleoData_mostRecentCompilations")
+  keeps <- c("archiveType", "paleoData_variableName", "paleoData_units","paleoData_proxy",
+             "geo_latitude", "geo_longitude","geo_elevation", "minAge", "maxAge",
+             "medianResolution", "auth", "datasetId", "dataSetName", "country",
+             "continent", "interp_Vars", "interp_Details",
+             "paleoData_mostRecentCompilations", "interpretation1_seasonality")
 
   tibdg <- dplyr::select(tibdg,!!keeps)
 

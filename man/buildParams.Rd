@@ -15,6 +15,7 @@ buildParams(
   updateWebpages = TRUE,
   standardizeTerms = TRUE,
   ageOrYear = "age",
+  recreateDataPages = FALSE,
   restrictWebpagesToCompilation = TRUE,
   serialize = TRUE,
   projVersion = NA

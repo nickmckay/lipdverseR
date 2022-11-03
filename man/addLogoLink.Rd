@@ -11,9 +11,6 @@ addLogoLink(htmlPath, link = "http://lipdverse.org")
 
 \item{tag}{tag code, default is readLines(file.path(webDirectory,"gatag.html"))}
 }
-\value{
-
-}
 \description{
 add logo link
 }

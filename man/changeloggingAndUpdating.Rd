@@ -9,9 +9,6 @@ changeloggingAndUpdating(params, data)
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
 Log changes and update
 }

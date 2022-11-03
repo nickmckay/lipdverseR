@@ -14,9 +14,6 @@ addGoogleTracker(
 
 \item{tag}{tag code, default is readLines(file.path(webDirectory,"gatag.html"))}
 }
-\value{
-
-}
 \description{
 add google tracking code
 }
