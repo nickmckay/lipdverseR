@@ -5,7 +5,7 @@
 getMeta <- function(L){
   dsid <- L$datasetId
   dsn <- L$dataSetName
-  vers <- max(sapply(L$changelog,"[[","version"))
+  vers <- sapply(L$changelog,"[[","version") %>% as.numeric_version() %>% max() %>% as.character()
   df <- data.frame(dsid = dsid, dsn = dsn, version = vers)
   return(df)
 }

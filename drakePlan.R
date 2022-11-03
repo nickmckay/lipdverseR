@@ -1,5 +1,7 @@
-.libPaths("/Library/Frameworks/R.framework/Versions/3.5/Resources/library")
-Sys.setenv(RSTUDIO_PANDOC = "/Applications/RStudio.app/Contents/MacOS/pandoc")
+.libPaths("/Library/Frameworks/R.framework/Versions/4.1/Resources/library")
+rmarkdown::find_pandoc(dir = "/Applications/RStudio.app/Contents/MacOS/quarto/bin/tools")
+
+
 #library(lipdverseR)
 library(magrittr)
 library(tidyverse)
@@ -134,6 +136,77 @@ Temp12k <- drake_plan(
   changeloggingAndUpdating(params,data8)
 )
 
+iso2k <- drake_plan(
+  params = buildParams("iso2k",
+                       "/Users/nicholas/Dropbox/lipdverse/iso2k/",
+                       "/Users/nicholas/Dropbox/lipdverse/html/",
+                       qcId = "1jdSQqUkR_YuJO8Hsp2x3hOhrW19a0SL6wB2mbp4DA2M",
+                       lastUpdateId = "1m0-obq3etFf8fvcfN-jrxsYOHqDV7lcsMpZmidxZKis",
+                       googEmail = "nick.mckay2@gmail.com",
+                       recreateDataPages = FALSE,
+                       updateWebpages = TRUE,
+                       ageOrYear = "year",
+                       serialize = TRUE,
+                       standardizeTerms = FALSE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2 = getQcInfo(params,data1),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
+pages2k <- drake_plan(
+  params = buildParams("Pages2kTemperature",
+                       "/Users/nicholas/Dropbox/lipdverse/Pages2kTemperature/",
+                       "/Users/nicholas/Dropbox/lipdverse/html/",
+                       qcId = "1_ZvQXV-jXMLi7DSC9vc8tAXdlimfkYrna0fKbIB_5Og",
+                       lastUpdateId = "11Vh1iCxt0bEq4a8jlM3uawiPX-C8un8i8GUji3S8guA",
+                       googEmail = "nick.mckay2@gmail.com",
+                       recreateDataPages = FALSE,
+                       updateWebpages = TRUE,
+                       ageOrYear = "year",
+                       serialize = TRUE,
+                       standardizeTerms = FALSE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2 = getQcInfo(params,data1),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
 
 #run it
-drake::make(test,lock_envir = FALSE)
+count <- 19
+while(TRUE){
+  count <- count+1
+  if(count > 20){
+    break
+  }
+  print(paste("try",count))
+  try(
+    drake::make(RAW,lock_envir = FALSE)
+  )
+  prog <- drake::drake_progress()
+  if(all(prog$progress == "done")){
+    break
+  }
+}
+
+af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE)
+
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
+
+  #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
+
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse

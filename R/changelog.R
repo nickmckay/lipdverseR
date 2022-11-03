@@ -138,10 +138,10 @@ createChangelog <- function(Lold,
 
     #check TSids are unique
     if(any(duplicated(to$paleoData_TSid))){
-      stop("the original dataset has duplicated TSids")
+      stop(glue::glue("{to$dataSetName[1]}: the original dataset has duplicated TSids"))
     }
     if(any(duplicated(tn$paleoData_TSid))){
-      stop("the new dataset has duplicated TSids")
+      stop(glue::glue("{tn$dataSetName[1]}: the new dataset has duplicated TSids"))
     }
 
 
@@ -382,7 +382,16 @@ createChangelog <- function(Lold,
       tnv <- tn$paleoData_values[[i]]
       tnv[is.na(tnv)] <- -999
 
-      if(!all(tov == tnv)){
+      if(is.character(tov) & is.character(tnv)){
+        valChange <- !all(tov == tnv)
+      }else if(is.numeric(tov) & is.numeric(tnv)){
+        valChange <- !all(dplyr::near(tov,tnv))
+      }else{
+        warning("it seems like the old and new values are of different classes, which is bad. Converting to character for comparison")
+        valChange <- !all(as.character(tov) == as.character(tnv))
+      }
+
+      if(valChange){
         tsi <- tn$paleoData_TSid[i]
         tsname <- tn$paleoData_variableName[i]
         cl <- c(cl,
@@ -396,7 +405,10 @@ createChangelog <- function(Lold,
 
 
   # Go through chronData ----------------------------------------------------
-  if(hasChron){
+  totest <- Lold %>%
+    extractTs(mode = "chron")
+
+  if(hasChron & length(totest) > 0){# only check for new columns if there was an old chron.
     #get tibbles
     to <- Lold %>%
       extractTs(mode = "chron") %>%
@@ -410,7 +422,17 @@ createChangelog <- function(Lold,
 
     #check TSids are unique
     if(any(duplicated(to$chronData_TSid))){
-      stop("the original dataset has duplicated chron TSids")
+      print("the original dataset has duplicated chron TSids, can't proceed")
+      cl <- c(cl,
+              glue::glue("ChronData: Duplicated TSids names in original dataset, couldn't log column-level changes.")
+      )
+
+      ct <- c(ct,"ChronData table")
+      cv <- c(cv,paste(to$chronData_TSid[duplicated(to$chronData_TSid)],collapse = ", "))
+
+      changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL,lastVersion = NULL)
+
+      return(changelog)
     }
     if(any(duplicated(tn$chronData_TSid))){
       stop("the new dataset has duplicated chron TSids")
@@ -453,60 +475,92 @@ createChangelog <- function(Lold,
     if(nrow(tn) < 1 | nrow(to) < 1){
       print("there are 0 or 1 matching TSids in the chronData. You probably entered an incorrect file, or fixed a TSid problem")
       print("trying by variableName")
-      #get tibbles
+
+
       to <- Lold %>%
         extractTs(mode = "chron") %>%
-        ts2tibble() %>%
-        dplyr::arrange(chronData_variableName)
+        ts2tibble()
 
       tn <- Lnew %>%
         extractTs(mode = "chron") %>%
-        ts2tibble() %>%
-        dplyr::arrange(chronData_variableName)
+        ts2tibble()
+
+      if(nrow(to) == 0){
+        stop("there seems to be no data in the old chronData table")
+      }
+      if(nrow(tn) == 0){
+        stop("there seems to be no data in the new chronData table")
+      }
+      print(to$dataSetName)
+
+      to <- dplyr::arrange(to,chronData_variableName)
+
+      tn <- dplyr::arrange(tn,chronData_variableName)
 
       #check TSids are unique
       if(any(duplicated(to$chronData_variableName))){
-        stop("the original dataset has duplicated chron variableName")
+        print("the original dataset has duplicated chron variableName, can't proceed")
+        cl <- c(cl,
+                glue::glue("ChronData: Duplicated variable names in original dataset, couldn't log column-level changes.")
+        )
+
+        ct <- c(ct,"ChronData table")
+        cv <- c(cv,paste(to$chronData_variableName[duplicated(to$chronData_variableName)],collapse = ", "))
+
+        changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL,lastVersion = NULL)
+
+        return(changelog)
+
       }
+
       if(any(duplicated(tn$chronData_variableName))){
         stop("the new dataset has duplicated variableName")
       }
 
+        # Check for added/removed columns -----------------------------------------
 
-      # Check for added/removed columns -----------------------------------------
+        #check for added columns
+        if(any(!tn$chronData_variableName %in% to$chronData_variableName)){#then one was added
+          wa <- which(!tn$chronData_variableName %in% to$chronData_variableName)
+          for(i in wa){
+            cl <- c(cl,
+                    glue::glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
+            )
+            ct <- c(ct,"ChronData table")
+            cv <- c(cv,NA)
 
-      #check for added columns
-      if(any(!tn$chronData_variableName %in% to$chronData_variableName)){#then one was added
-        wa <- which(!tn$chronData_variableName %in% to$chronData_variableName)
-        for(i in wa){
-          cl <- c(cl,
-                  glue::glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
-          )
-          ct <- c(ct,"ChronData table")
-          cv <- c(cv,NA)
-
+          }
+          #then remove them - we won't describe the details of added columns
+          tn <- tn[-wa,]
         }
-        #then remove them - we won't describe the details of added columns
-        tn <- tn[-wa,]
-      }
 
-      #check for removed columns
-      if(any(!to$chronData_variableName %in% tn$chronData_variableName)){#then one was added
-        wr <- which(!to$chronData_variableName %in% tn$chronData_variableName)
-        for(i in wr){
-          cl <- c(cl,
-                  glue::glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
-          )
-          ct <- c(ct,"ChronData table")
-          cv <- c(cv,NA)
+        #check for removed columns
+        if(any(!to$chronData_variableName %in% tn$chronData_variableName)){#then one was added
+          wr <- which(!to$chronData_variableName %in% tn$chronData_variableName)
+          for(i in wr){
+            cl <- c(cl,
+                    glue::glue("Column '{to$chronData_TSid[i]}', with variable name '{to$chronData_variableName[i]}', was removed from the dataset")
+            )
+            ct <- c(ct,"ChronData table")
+            cv <- c(cv,NA)
 
+          }
+          #then remove them - this should force the datasets to always have the same number of columns
+          to <- to[-wr,]
         }
-        #then remove them - this should force the datasets to always have the same number of columns
-        to <- to[-wr,]
-      }
-      if(nrow(tn) < 1 | nrow(to) < 1){
-        stop("there are 0 or 1 matching TSids AND variableNames in the chronData. You probably entered an incorrect file, or fixed a TSid problem")
-      }
+        if(nrow(tn) < 1 | nrow(to) < 1){
+          print("there are 0 or 1 matching TSids AND variableNames in the chronData. You probably entered an incorrect file, or fixed a TSid problem")
+          cl <- c(cl,
+                  glue::glue("ChronData: There are 0 or 1 matching TSids AND variableNames in the chronData. You probably entered an incorrect file, or fixed a TSid problem")
+          )
+
+          ct <- c(ct,"ChronData table")
+          cv <- c(cv,"unknown")
+
+          changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL,lastVersion = NULL)
+
+          return(changelog)
+        }
     }
 
     #check to make sure that the TSids and number of rows are identical
@@ -641,7 +695,19 @@ createChangelog <- function(Lold,
       tov[is.na(tov)] <- -999
       tnv <- tn$chronData_values[[i]]
       tnv[is.na(tnv)] <- -999
-      if(!all(tov == tnv)){
+
+      if(is.character(tov) & is.character(tnv)){
+        valChange <- !all(tov == tnv)
+      }else if(is.numeric(tov) & is.numeric(tnv)){
+        valChange <- !all(dplyr::near(tov,tnv))
+      }else{
+
+        warning("it seems like the old and new values are of different classes, which is bad. Converting to character for comparison")
+        valChange <- !all(as.character(tov) == as.character(tnv))
+
+      }
+
+      if(valChange){
         tsi <- tn$chronData_TSid[i]
         tsname <- tn$chronData_variableName[i]
         cl <- c(cl,
@@ -651,6 +717,26 @@ createChangelog <- function(Lold,
 
       }
     }
+
+  }else if(hasChron & length(totest) == 0){
+    tn <- Lnew %>%
+      extractTs(mode = "chron") %>%
+      ts2tibble() %>%
+      dplyr::arrange(chronData_TSid)
+
+    #check TSids are unique
+
+
+    #check for added columns
+    wa <- seq_along(tn$chronData_TSid)
+    for(i in wa){
+      cl <- c(cl,
+              glue::glue("Column '{tn$chronData_TSid[i]}', with variable name '{tn$chronData_variableName[i]}', was added to the dataset")
+      )
+      ct <- c(ct,"ChronData table")
+      cv <- c(cv,NA)
+    }
+
 
   }
 
@@ -775,10 +861,10 @@ updateChangelog <- function(L,
 #' @return
 #' @export
 createNewChangelog <- function(L,
-                            version = NA,
-                            notes = NA,
-                            curator = Sys.info()[["user"]],
-                            timestamp = lubridate::now(tzone = "UTC")){
+                               version = NA,
+                               notes = NA,
+                               curator = Sys.info()[["user"]],
+                               timestamp = lubridate::now(tzone = "UTC")){
 
   if(!is.null(L$changelog)){#no changes, don't write
     stop("Changelog already exists, use updateChangelog()")
@@ -788,7 +874,7 @@ createNewChangelog <- function(L,
   lastVers <- "none"
   vers <- "0.0.0"
 
-changelist <- list("Starting new changelog")
+  changelist <- list("Starting new changelog")
 
 
   if(!is.na(notes)){#add in notes if present
@@ -1086,6 +1172,9 @@ createProjectChangelog <- function(Dold,
     for(i in 1:nrow(cTg)){
       tdsid <- cTg$datasetId[i]
       print(i)
+      print(cTg$dataSetNameOld[i])
+      print(cTg$dataSetNameNew[i])
+
       cl <- createChangelog(Dold[[cTg$dataSetNameOld[i]]],Dnew[[cTg$dataSetNameNew[i]]])
       if(nrow(cl) > 0){
         bigCl <- dplyr::bind_rows(bigCl,cl)

@@ -49,7 +49,12 @@ createSitemapXml <- function(webdir,
                              torep = "/Users/nicholas/Dropbox/lipdverse/html",
                              repwith = "http://lipdverse.org",
                              outfile = file.path(torep,"sitemap.xml") ){
-  html_full <- list.files(path = webdir,pattern = "*.html",full.names = TRUE)
+  html_full <- list.files(path = webdir,pattern = "*.html",full.names = TRUE,recursive = TRUE)
+  bad <- which(str_detect(html_full,pattern = "sidebar") |
+                 str_detect(html_full,pattern = "changelog") |
+               str_detect(html_full,pattern = "Plots"))
+  html_full <- html_full[-bad]
+
   dates <- lubridate::ymd(lubridate::as_date(file.mtime(html_full)))
   html <- stringr::str_replace_all(html_full, pattern = torep,replacement = repwith)
 
@@ -273,7 +278,7 @@ createThroughputWidget <- function(L){
 createJsonldSnippet <- function(L){
   dsid <- L$datasetId
   dsn <- L$dataSetName
-  vers <- max(sapply(L$changelog,"[[","version"))
+  vers <- sapply(L$changelog,"[[","version") %>% as.numeric_version() %>% max() %>% as.character()
   vers_ <- str_replace_all(vers,"[.]","_")
   J <- list()
   #context

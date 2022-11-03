@@ -7,7 +7,13 @@
 #' @import purrr stringr lipdR
 #' @return a character vector of compilations and versions
 #' @export
-getMostRecentInCompilationsTs <- function(TS){
+getMostRecentInCompilationsTs <- function(TS,
+                                          comps.to.include = c("Temp12k",
+                                                               "wNAm",
+                                                               "iso2k",
+                                                               "PalMod",
+                                                               "SISAL-LiPD",
+                                                               "Pages2kTemperature")){
 
   allNames <- sort(unique(unlist(sapply(TS,names))))#get all names in TS
   #get all the names of the compilations
@@ -28,13 +34,19 @@ getMostRecentInCompilationsTs <- function(TS){
     allCompVersions[[i]] <- lipdR::pullTsVariable(TS,allVers[i])
   }
 
+  if(all(is.na(comps.to.include))){
+    comps.to.include <- c(na.omit(unique(unlist(purrr::map(allCompNames,unique)))))
+  }
+
+
   #get all comps per entry
-  getAllComps <- function(i){
+  getAllComps <- function(i,comps.to.include){
     ac <- purrr::map_chr(seq_along(allCompNames),~purrr::pluck(allCompNames,.x,i))
+    ac <- ac[ac %in% comps.to.include]
     return(ac[!is.na(ac)])
   }
 
-  allComps <- purrr::map(seq_along(TS),getAllComps)
+  allComps <- purrr::map(seq_along(TS),getAllComps,comps.to.include)
 
   #prep output
   out <- tibble::tibble(compilation = NA, version = NA)
@@ -324,12 +336,14 @@ flattenAuthors <- function(vec){
 getGoogleQCSheet <- function(qcSheetId){
   #download qc sheet
   setwd(here::here())
-  x <- googledrive::drive_get(id = googledrive::as_id(qcSheetId))
-    qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
+  #x <- googledrive::drive_get(id = googledrive::as_id(qcSheetId))
+  # qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
+  qc <- googlesheets4::sheets_read(ss = qcSheetId)
+  readr::write_csv(x = qc,file = here::here("googleQC.csv") )
 
   #remove any special characters
   rosetta <- lipdverseR::rosettaStone()
-  qcs <- readr::read_csv(here::here("googleQC.csv"),guess_max = Inf) %>%
+  qcs <- readr::read_csv(here::here("googleQC.csv"),guess_max = 1e5) %>%
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 
   return(qcs)
@@ -512,7 +526,7 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
                   }else{#must be a new compilation!
                     if(length(compNames)==0){#no comps in this TS yet
                       compNum <- 0
-                      }
+                    }
                     #what compilation number?
                     thisCompNum <- max(as.numeric(compNum))+1
                     #append this version
@@ -523,13 +537,13 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
               }else{#everything else
                 newTS[[i]][thisTSnames[j]] <- varFun(qcs[qci,rn])
 
+              }
+              if(length(rn) > 1){
+                stop("there shouldn't be multiple matches in ts names")
+              }
             }
-            if(length(rn) > 1){
-              stop("there shouldn't be multiple matches in ts names")
-            }
-          }
-        }#end loop through variables and force an update
-      }
+          }#end loop through variables and force an update
+        }
       }
     }
   }
@@ -561,8 +575,10 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
   # qc <- googledrive::drive_download(x,path = here::here("template.csv"),type = "csv",overwrite = T)
   # qcs <- readr::read_csv(here::here("template.csv"),guess_max = 10^4)
 
-  qcs <- googlesheets4::read_sheet(templateId,range = "1:2")
 
+  qcs <- try(googlesheets4::read_sheet(ss=templateId,range = "1:2"))
+
+  qcs <- googlesheets4::read_sheet(ss=templateId,range = "1:2")
 
   #download name conversion
   # convo <-  googledrive::as_id("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w") %>%
@@ -572,7 +588,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
   #   as.character() %>%
   #   read_csv()
 
-  convo <- googlesheets4::read_sheet("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
+  convo <- googlesheets4::read_sheet(ss="1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
 
 
   #filter rows
@@ -761,7 +777,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
     n2p <- convo$tsName[toPull[i]==convo$qcSheetName]
     if(length(n2p) == 0){n2p <- "missingVariable!!!"}
     if(n2p == "inCompilationBeta_struct"){#figure out wheter it's in the compilation or not
-        vec <- inThisCompilation(TS = fsTS,compName = compilationName,compVers = compVersion)
+      vec <- inThisCompilation(TS = fsTS,compName = compilationName,compVers = compVersion)
     }else if(any(n2p==allNames)){#regular check
       vec <- pullTsVariable(fsTS,n2p)
       #check to see if vec is authors
@@ -791,6 +807,26 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
   return(out)
 }
 
+#helper function for in this compilation
+checkfun <- function(cn,cv,compName,compVers){
+  if(is.list(cv)){
+    anycvm <- purrr::map_lgl(cv,function(x){any(x == compVers)})
+  }else{
+    cvm <- t(as.matrix(cv))
+    anycvm <- apply(cvm,1,function(x){any(x == compVers)})
+  }
+
+  # old code here:
+  # bothMatch <- (cn==compName & purrr::map_lgl(cv,function(x){any(x == compVers)}))
+  bothMatch <- (cn==compName & anycvm)
+
+  #put NAs back in for compName
+  incn <- which(is.na(cn))
+  bothMatch[incn] <- NA
+  out <- data.frame(bothMatch)
+  out <- setNames(out, createTSid())
+  return(out)
+}
 
 #' In this compilation
 #'
@@ -808,36 +844,17 @@ inThisCompilation <- function(TS,compName,compVers){
   allComps <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationName",allNames)]
   allVers <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationVersion",allNames)]
 
-if(length(allComps) == 0){
- return(matrix(NA,nrow = length(TS)))
+  if(length(allComps) == 0){
+    return(matrix(NA,nrow = length(TS)))
 
-}
+  }
   allCompNames <- vector(mode = "list",length=length(allComps))
   allCompVersions <- vector(mode = "list",length=length(allComps))
 
   #get all the data
   for(i in 1:length(allComps)){
-  allCompNames[[i]] <- pullTsVariable(TS,allComps[i])
-  allCompVersions[[i]] <- pullTsVariable(TS,allVers[i])
-  }
-
-  #check to see if they match
-  checkfun <- function(cn,cv,compName,compVers){
-    if(is.list(cv)){
-      anycvm <- purrr::map_lgl(cv,function(x){any(x == compVers)})
-    }else{
-    cvm <- t(as.matrix(cv))
-    anycvm <- apply(cvm,1,function(x){any(x == compVers)})
-    }
-
-  # old code here:
-   # bothMatch <- (cn==compName & purrr::map_lgl(cv,function(x){any(x == compVers)}))
-    bothMatch <- (cn==compName & anycvm)
-
-    #put NAs back in for compName
-    incn <- which(is.na(cn))
-    bothMatch[incn] <- NA
-    return(bothMatch)
+    allCompNames[[i]] <- pullTsVariable(TS,allComps[i])
+    allCompVersions[[i]] <- pullTsVariable(TS,allVers[i])
   }
 
   #check for each compilation
@@ -858,7 +875,11 @@ if(length(allComps) == 0){
 #' @import googledrive
 createNewQCSheet <- function(qcdf,qcName){
   readr::write_csv(qcdf,path = file.path(tempdir(),"qc.csv"))
-  googledrive::drive_upload(name = qcName,media = file.path(tempdir(),"qc.csv"),type = "spreadsheet")
+  qcdf <- readr::read_csv(file =  file.path(tempdir(),"qc.csv"))
+  sid <- googlesheets4::sheet_write(data = qcdf)
+  googledrive::drive_rename(file = sid,qcName)
+  #readr::write_csv(,path = file.path(tempdir(),"qc.csv"))
+  #googledrive::drive_upload(name = qcName,media = file.path(tempdir(),"qc.csv"),type = "spreadsheet")
 }
 
 #' Create the files for a new project
