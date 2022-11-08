@@ -9,9 +9,6 @@ checkIfUpdateNeeded(params)
 \arguments{
 \item{params}{}
 }
-\value{
-
-}
 \description{
 Check if an update is needed
 }
