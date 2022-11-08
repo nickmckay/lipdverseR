@@ -10,14 +10,20 @@ derivedMetadata <- function(age,year,...){
   if(all(is.na(age)) & !all(is.na(year))){
     age <- geoChronR::convertAD2BP(year)
   }
-
-  out <- tibble::tibble(
-    minAge = min(age,na.rm = TRUE),
-    maxAge = max(age,na.rm = TRUE),
-    medianResolution = median(abs(diff(na.omit(age)),na.rm = TRUE))
-  )
+  if(all(is.na(age))){
+    out <- tibble::tibble(
+      minAge = NA,
+      maxAge = NA,
+      medianResolution = NA)
+  }else{
+    out <- tibble::tibble(
+      minAge = min(age,na.rm = TRUE),
+      maxAge = max(age,na.rm = TRUE),
+      medianResolution = median(abs(diff(age)),na.rm = TRUE)
+    )
+  }
   return(out)
-}
+  }
 
 
 
@@ -79,7 +85,7 @@ createQueryCsv <- function(D){
   tibdg <- dplyr::select_if(tibdg,~ !is.list(.x))
 
   geogNames <- coords2country(data.frame(lon=tibdg$geo_longitude,
-                                      lat=tibdg$geo_latitude))
+                                         lat=tibdg$geo_latitude))
 
   tibdg$country <- geogNames$country
   tibdg$continent <- geogNames$continent
@@ -159,8 +165,8 @@ updateQueryCsv <- function(D){
 
   #write and update
   readr::write_csv(up,file = "~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.csv")
-zip(files = "/Users/nicholas/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.csv",
-    zipfile = "~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.zip",extras = '-j')
+  zip(files = "/Users/nicholas/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.csv",
+      zipfile = "~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.zip",extras = '-j')
   tools::md5sum("~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.zip") %>%
-  readr::write_file("~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.md5")
+    readr::write_file("~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.md5")
 }
