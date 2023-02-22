@@ -128,7 +128,7 @@ createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
   sidebarTitle <- glue::glue("{dsn} - v{vers}")
   dsidstr <- paste("Dataset Id:",dsid)
-  dsPath <- glue("../../../{dsid}/{vers_}/")
+  dsPath <- glue("../../{dsid}/{vers_}/")
   lpdPath <- glue("{dsPath}/{dsn}.lpd")
   lpdPathEns <- glue("{dsPath}/{dsn}-ensemble.lpd")
   jsonPath <- glue("{dsPath}/{dsn}.jsonld")
@@ -246,7 +246,7 @@ createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
   if(npub>0){
     bigName <-  "pub"
-    vars <-  c("author","citeKey","journal","volume","pages","pubYear","title","DOI")
+    vars <-  c("author","citeKey","journal","volume","pages","pubYear","title","DOI","doi")
 
     sidebar <- str_c(sidebar,"<details>",sep = "\n") %>%
       str_c(str_c("<summary>",bigName,"</summary>"),sep = "\n")
