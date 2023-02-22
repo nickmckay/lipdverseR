@@ -375,13 +375,13 @@ createDescription <- function(L){
   sn <- L$geo$siteName
   gcmd <- L$geo$gcmdLocation
 
-  if(is.null(sn)){
+  if(any(is.null(sn))){
     noLoc <- TRUE
   }else{
     noLoc <- FALSE
   }
 
-  if(is.null(gcmd)){
+  if(any(is.null(gcmd))){
     locstring <- sn
   }else{
     locstring <- glue::glue("{sn} ({gcmd})")
@@ -395,7 +395,7 @@ createDescription <- function(L){
   yu <- try(pullTsVariable(ts,"yearUnits"),silent = TRUE)
 
   noDur <- FALSE
-  if(class(ages) != "try-error"){#lets go
+  if(!is(ages,"try-error")){#lets go
     if(is.list(ages)){
       young <- min(sapply(ages,min,na.rm = TRUE))
       old <- max(sapply(ages,max,na.rm = TRUE))
@@ -404,7 +404,7 @@ createDescription <- function(L){
       old <- max(ages,na.rm = TRUE)
     }
     units <- unique(au)[1]
-  }else if(class(years) != "try-error"){
+  }else if(!is(years,"try-error")){
     if(is.list(years)){
       young <- max(sapply(ages,max,na.rm = TRUE))
       old <- min(sapply(ages,min,na.rm = TRUE))
@@ -418,7 +418,7 @@ createDescription <- function(L){
   }
 
   if(!noDur){
-    if(!is.numeric(old) | !is.numeric(young) ){
+    if(!all(is.numeric(old)) | !all(is.numeric(young) )){
       noDur <- TRUE
     }
   }

@@ -1,14 +1,17 @@
-.libPaths("/Library/Frameworks/R.framework/Versions/4.1/Resources/library")
+.libPaths("/Library/Frameworks/R.framework/Versions/4.2/Resources/library")
 rmarkdown::find_pandoc(dir = "/Applications/RStudio.app/Contents/MacOS/quarto/bin/tools")
 
-
+devtools::load_all(".")
 #library(lipdverseR)
 library(magrittr)
 library(tidyverse)
 library(lipdR)
 library(glue)
 library(drake)
+library(profvis)
 setwd("/Users/nicholas/GitHub/lipdverseR/")
+
+lipdR:::checkStandardTables()
 
 googEmail <- "nick.mckay2@gmail.com"
 #authorize google
@@ -38,6 +41,56 @@ HoloceneHydroclimate <- drake_plan(
   data8 = finalize(params,data7),
   changeloggingAndUpdating(params,data8)
   )
+
+Hydro21k <- drake_plan(
+  params = buildParams("Hydro21k",
+                       "/Volumes/data/Dropbox/lipdverse/database",
+                       "/Volumes/data/Dropbox/lipdverse/html/",
+                       qcId = "1k3PZTGZ1n1eljVbXx9qR-PtQ-7LIdj-mi7wtEmzu2iM",
+                       lastUpdateId = "1uwoNny2tsul94zyD16txceRZLsGo1LEW3-1UcUX0GdY",
+                       googEmail = "nick.mckay2@gmail.com",
+                       updateWebpages = TRUE,
+                       updateLipdverse = TRUE,
+                       standardizeTerms = FALSE,
+                       serialize = TRUE),
+ # updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2 = getQcInfo(params,data1),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
+HoloceneAbruptChange <- drake_plan(
+  params = buildParams("HoloceneAbruptChange",
+                       "/Volumes/data/Dropbox/lipdverse/database",
+                       "/Volumes/data/Dropbox/lipdverse/html/",
+                       qcId = "1u4vWrSsXv_6O16juL4WCgaJdFMxBqwerBi6BGhb3IgQ",
+                       lastUpdateId = "1Nb_1lIlsAy6QH6HqGwsNNSvJDjcSqmyjWYDUmccLVt4",
+                       googEmail = "nick.mckay2@gmail.com",
+                       updateWebpages = TRUE,
+                       updateLipdverse = TRUE,
+                       qcStandardizationCheck = FALSE,
+                       standardizeTerms = FALSE,
+                       serialize = TRUE),
+  # updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2 = getQcInfo(params,data1),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
 
 test <- drake_plan(
   params = buildParams("test",
@@ -71,6 +124,7 @@ RAW <- drake_plan(
                        lastUpdateId = "1OEUGZrqo5Ipz8lBZy9hvxtOeOPOc38sswv3-laFBobU",
                        googEmail = "nick.mckay2@gmail.com",
                        updateWebpages = TRUE,
+                       updateLipdverse = TRUE,
                        standardizeTerms = FALSE,
                        serialize = TRUE),
   updateNeeded = checkIfUpdateNeeded(params),
@@ -94,9 +148,10 @@ CH2k <- drake_plan(
                        qcId = "1FJAZrPlqc8rYT7cb1sMwEHnpyMSGcQ96MFGsKYJydgU",
                        lastUpdateId = "1N1F1pmepvW3r0l8Wqqm0ibp7MmNJnwAml-quPDQ1wzs",
                        googEmail = "nick.mckay2@gmail.com",
-                      #projVersion ="0_5_0",
+                       projVersion ="1_0_0",
                        updateWebpages = TRUE,
                        ageOrYear = "year",
+                       updateLipdverse = FALSE,
                        standardizeTerms = FALSE,
                        serialize = TRUE),
   updateNeeded = checkIfUpdateNeeded(params),
@@ -121,7 +176,7 @@ Temp12k <- drake_plan(
                        googEmail = "nick.mckay2@gmail.com",
                        updateWebpages = TRUE,
                        ageOrYear = "age",
-                       standardizeTerms = TRUE,
+                       standardizeTerms = FALSE,
                        serialize = TRUE),
   updateNeeded = checkIfUpdateNeeded(params),
   data1 = loadInUpdatedData(params),
@@ -205,8 +260,8 @@ while(TRUE){
 
 af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE)
 
-#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
 
   #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/RapidArcticWarming/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/RapidArcticWarming

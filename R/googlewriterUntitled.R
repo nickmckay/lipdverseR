@@ -13,7 +13,7 @@
 #' @examples
 write_sheet_retry <- function(data,ss = NULL,sheet = NULL,ntries = 50,timeout = NA){
   if(is.na(timeout)){
-    timeout <- object.size(data)/1e6
+    timeout <- max(c(object.size(data)/1e6,10))
   }
 
   tries <- 0
@@ -32,6 +32,8 @@ write_sheet_retry <- function(data,ss = NULL,sheet = NULL,ntries = 50,timeout = 
       break
     }
   }
+
+ # wrote <- purrr::insistently(googlesheets4::sheet_write(data, ss = ss, sheet = sheet))
 
   if(is(wrote,"try-error")){
     return("failed to write")

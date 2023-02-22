@@ -91,7 +91,8 @@ meetsHoloceneCriteria,paleoData_meetsHoloceneHydroclimateCriteria,character
 mostRecentCompilations,paleoData_mostRecentCompilations,character
 paleoDataNotes,paleoData_notes,character
 PAGES 2k ID,paleoData_pages2kId,character
-primaryTimeseries,paleoData_primaryTimeseriesHoloceneHydroclimate,character
+Holocene Hydroclimate primary timeseries,paleoData_primaryTimeseriesHoloceneHydroclimate,character
+primaryTimeseries,paleoData_primaryTimeseries,character
 proxy,paleoData_proxy,character
 proxyDetail,paleoData_proxyDetail,character
 proxyGeneral,paleoData_proxyGeneral,character
@@ -142,6 +143,6 @@ ocean2,geo_ocean2,character
 monsoonRegion,geo_monsoonRegion,character
 nominalResolution,hasResolution_nominal,character
 hasUncertainty,paleoData_hasUncertainty,character
-isComposite,paleoData_isComposite,numeric
+isComposite,paleoData_isComposite,character
 coreName,paleoData_coreName,character
 additionalDataUrl,additionalDataUrl,character

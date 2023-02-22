@@ -38,7 +38,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
   # lastMD5 <- directoryMD5(file.path(webDirectory,project,"current_version"))
   #
-  googlesheets4::sheets_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail)
 
 
   #compare QC update times
@@ -49,13 +49,16 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   lastUpdate <- lubridate::ymd_hms(versionSheet$versionCreated[1])
   lastMD5 <- versionSheet$`zip MD5`[1]
 
-  currentMD5 <- directoryMD5(lipdDir)
-
   filesNeedUpdating <- TRUE
-  if(lastMD5 == currentMD5){
-    filesNeedUpdating <- FALSE
-  }
 
+  if(length(lastMD5) > 0){
+    currentMD5 <- directoryMD5(lipdDir)
+
+    if(lastMD5 == currentMD5){
+      filesNeedUpdating <- FALSE
+    }
+
+  }
   #most recent file edit time
   lastMod <- purrr::map(list.files(lipdDir,pattern = "*.lpd",full.names = TRUE),file.mtime )
   lastMod <- lubridate::with_tz(lubridate::ymd_hms(lastMod[[which.max(unlist(lastMod))]],tz = "America/Phoenix"),tzone = "UTC")
@@ -105,7 +108,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 #' @examples
 tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::sheets_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail)
 
   #get last versions udsn
   versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
@@ -152,7 +155,7 @@ tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvP
 #' @examples
 lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::sheets_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail)
 
   #get last versions udsn
   versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
@@ -203,8 +206,10 @@ buildParams <- function(project,
                         ageOrYear = "age",
                         recreateDataPages = FALSE,
                         restrictWebpagesToCompilation = TRUE,
+                        qcStandardizationCheck = TRUE,
                         serialize = TRUE,
-                        projVersion = NA){
+                        projVersion = NA,
+                        updateLipdverse = TRUE){
 
   an <- ls()
   av <- purrr::map(an,~eval(parse(text = .x))) %>% setNames(an)
@@ -223,9 +228,10 @@ buildParams <- function(project,
 #' @examples
 checkIfUpdateNeeded <- function(params){
 
-  #parse parameters
-  assignVariablesFromList(params)
-
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
 
 
   if(is.na(projVersion)){#skip check if new version is specified
@@ -249,15 +255,36 @@ checkIfUpdateNeeded <- function(params){
 #' @export
 loadInUpdatedData <- function(params){
 
-  assignVariablesFromList(params)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #if looking at full database:
+  if(lipdDir == "/Volumes/data/Dropbox/lipdverse/database"){
+    #getDatasetInCompilationFromQC()
+
+    #0. Figure out which datasets to load based on QC sheet.
+    dscomp <- googlesheets4::read_sheet(ss = qcId,sheet = "datasetsInCompilation")
 
 
-  #0. Figure out which datasets to load based on QC sheet.
-  dscomp <- googlesheets4::read_sheet(ss = qcId,sheet = "datasetsInCompilation") %>%
-    dplyr::filter(inComp != "FALSE")
+    #look for new files not in the dscomp page
+    af <-  list.files(lipdDir,pattern = ".lpd",full.names = FALSE) %>% stringr::str_remove_all(".lpd")
 
-  filesToConsider <- file.path(lipdDir, paste0(dscomp$dsn,".lpd"))
+    #which local files not in dscomp
+    new <- which(!af %in% dscomp$dsn)
+
+    dscompgood <- filter(dscomp,inComp != "FALSE")
+
+
+    filesToConsider <- file.path(lipdDir, paste0(c(dscompgood$dsn,af[new]),".lpd"))
+  }else{
+    filesToConsider <- list.files(lipdDir,pattern = ".lpd",full.names = TRUE)
+  }
+
+
   filesToUltimatelyDelete <- filesToConsider
+
 
   #1. load in (potentially updated) files
   D <- lipdR::readLipd(filesToConsider)
@@ -346,11 +373,114 @@ loadInUpdatedData <- function(params){
 #' @export
 getQcInfo <- function(params,data){
 
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
 
   #get the google qc sheet
   qcB <- getGoogleQCSheet(qcId)
+
+
+  if(qcStandardizationCheck){
+    #check QCsheet terms are valid
+    #replace them with other terms if they're not
+
+    stando <- lipdR::standardizeQCsheetValues(qcB)
+    qcB <- stando$newSheet
+
+    if(length(stando$remainingInvalid) > 0){#standardization issues. Do a few things:
+
+      #check to see if the existing invalid sheets contain corrected information....
+      convo <- googlesheets4::read_sheet(ss="1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
+      allSheetNames <- googlesheets4::sheet_names(ss = qcId)
+
+      for(rv in names(stando$remainingInvalid)){
+        tivs <- allSheetNames[startsWith(x = allSheetNames,prefix = rv)]
+        if(length(tivs) == 1){
+          thisOne <- googlesheets4::read_sheet(ss = qcId,sheet = tivs)
+          convoi <- which(convo$tsName == rv)
+          if(length(convoi) != 1){
+            if(rv == "interpretation_variable"){
+              qcName <- "climateVariable"
+            }else if(rv == "interpretation_seasonality"){
+              qcName <- "seasonality"
+            }else{
+              stop("I can't figure out the qc name")
+            }
+          }else{
+            qcName <- convo$qcSheetName[convoi]
+          }
+
+          #loop through terms and see if in standardTables, and replace if so.
+          if(nrow(thisOne) > 0){
+            for(rvr in 1:nrow(thisOne)){
+              if(thisOne[[ncol(thisOne)]][rvr] %in% standardTables[[rv]]$lipdName){#it's a standard term!
+                #replace it!
+                tsidm <- which(qcB$TSid == thisOne$TSid[rvr])
+                if(length(tsidm) > 1){stop("this shouldn't be possible")}
+
+                print(glue::glue("{thisOne$TSid[rvr]} - {rv}: replaced {qcB[[qcName]][tsidm]} with {thisOne[[ncol(thisOne)]][rvr]}"))
+                qcB[[qcName]][tsidm] <- thisOne[[ncol(thisOne)]][rvr]
+
+              }
+            }
+          }
+        }else if(length(tivs) == 0){
+         print(glue::glue("No sheet for {tivs} in the qc sheet"))
+        }else{
+          print(glue::glue("Multiple {tivs} sheets found: {allSheetNames}"))
+        }
+      }
+
+      #rerun the standardization report
+      stando <- lipdR::standardizeQCsheetValues(qcB)
+      qcB <- stando$newSheet
+
+      if(length(stando$remainingInvalid) > 0){#standardization issues remain
+
+      #write the standardized value back into the qc sheet
+      qcB[is.null(qcB) | qcB == ""] <- NA
+
+      #find differences for log
+      #diff <- daff::diff_data(qcA,qc2w,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
+
+      qcB[is.na(qcB)] <- ""
+      readr::write_csv(qcB,file = file.path(webDirectory,project,"qcInvalid.csv"))
+
+      #upload it to google drive into temporary qcInvalid
+      googledrive::drive_update(media = file.path(webDirectory,project,"qcInvalid.csv"),
+                                file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ"))
+
+      #copy the qc check to the qcsheet:
+      googlesheets4::sheet_delete(ss = qcId,sheet = 1)
+      googlesheets4::sheet_copy(from_ss = "1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ", from_sheet = 1,to_ss = qcId, to_sheet = "QC",.before = "datasetsInCompilation")
+
+      #write_sheet_retry(qc2w,ss = qcId, sheet = 1)
+      googledrive::drive_rename(googledrive::as_id(qcId),name = stringr::str_c(project," v. QC sheet - INVALID TERMS!"))
+      #two write a validation report
+      writeValidationReportToQCSheet(stando$remainingInvalid,qcId)
+
+      #delete sheets without missing terms
+      tokeep <- paste0(names(stando$remainingInvalid),"-invalid")
+      allSheetNames <- googlesheets4::sheet_names(ss = qcId)
+
+      ivnames <- allSheetNames[str_detect(allSheetNames,pattern = "-invalid")]
+      todelete <- setdiff(ivnames,tokeep)
+      try(googlesheets4::sheet_delete(ss = qcId,sheet = todelete),silent = TRUE)
+
+
+      #throw an error
+      stop("There are invalid terms in the QC sheet. Check the validation report")
+      }
+    }
+
+  }
 
   if(!any(names(qcB)=="changelogNotes")){
     qcB$changelogNotes <- NA
@@ -443,8 +573,15 @@ getQcInfo <- function(params,data){
 #' @return
 #' @export
 createQcFromFile <- function(params,data){
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
 
   #2. Create a new qc sheet from files
   qcC <- createQCdataFrame(sTS,templateId = qcId,ageOrYear = ageOrYear,compilationName = project,compVersion = lastProjVersion)
@@ -478,8 +615,15 @@ createQcFromFile <- function(params,data){
 #' @return
 #' @export
 mergeQcSheets <- function(params,data){
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
   #4. Load in the old QC sheet (from last update), and merge with new ones
   rosetta <- lipdverseR::rosettaStone()
   qcA <- readr::read_csv(file.path(webDirectory,project,"lastUpdate.csv"),guess_max = Inf) %>%
@@ -494,28 +638,41 @@ mergeQcSheets <- function(params,data){
   #qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC) Old way
   #NPM: 2.20.20 added to help merge_data work as desired
 
-  #shuffle in
-  dBC <- dplyr::anti_join(qcB,qcC,by = "TSid")
-  dCB <- dplyr::anti_join(qcC,qcB,by = "TSid")
-  dCA <- dplyr::anti_join(qcC,qcA,by = "TSid")
+  #new way. What if we only consider QC entries that are present in the TS QC (qcC)
+  qcAs <- dplyr::filter(qcA,TSid %in% qcC$TSid)
+  qcBs <- dplyr::filter(qcB,TSid %in% qcC$TSid)
 
-  qcA2 <- dplyr::bind_rows(qcA,dCA)
-  qcB2 <- dplyr::bind_rows(qcB,dCB)
-  qcC2 <- dplyr::bind_rows(qcC,dBC)
+
+  #shuffle in
+  # dBC <- dplyr::anti_join(qcB,qcC,by = "TSid")
+  # dCB <- dplyr::anti_join(qcC,qcB,by = "TSid")
+  # dCA <- dplyr::anti_join(qcC,qcA,by = "TSid")
+  #dBC <- dplyr::anti_join(qcC,qcA,by = "TSid")
+  dCB <- dplyr::anti_join(qcC,qcBs,by = "TSid")
+  dCA <- dplyr::anti_join(qcC,qcAs,by = "TSid")
+
+  qcA2 <- dplyr::bind_rows(qcAs,dCA)
+  qcB2 <- dplyr::bind_rows(qcBs,dCB)
+  #qcC2 <- dplyr::bind_rows(qcC,dBC)
 
   #check once more
-  dBA <- dplyr::anti_join(qcB,qcA2,by = "TSid")
-  qcA2 <- dplyr::bind_rows(qcA2,dBA)
+  #dBA <- dplyr::anti_join(qcB2,qcA2,by = "TSid")
+  #qcA2 <- dplyr::bind_rows(qcA2,dBA)
 
 
   #arrange by qcB TSid
   miA <- match(qcB2$TSid,qcA2$TSid)
-  miC <- match(qcB2$TSid,qcC2$TSid)
+  miC <- match(qcB2$TSid,qcC$TSid)
+
+
 
   qcA <- qcA2[miA,]
 
-  qcC <- qcC2[miC,]
+  qcC <- qcC[miC,]
   qcB <- qcB2
+
+
+
 
   #turn all NULLs and blanks to NAs
   qcA[is.null(qcA) | qcA == ""] <- NA
@@ -534,7 +691,17 @@ mergeQcSheets <- function(params,data){
   cfi <- which(qcC$TSid %in% bf$TSid)
   qcC$inThisCompilation[cfi] <- "TRUE"
 
-  qc <- daff::merge_data(qcA,qcB,qcC)
+  qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
+
+  #remove fake conflicts
+  qc <- purrr::map_dfc(qc,removeFakeConflictsCol)
+
+  #remove duplicate rows
+  qc <- dplyr::distinct(qc)
+
+
+  dd <- daff::diff_data(qcA,qc)
+  daff::render_diff(dd,file = file.path(webDirectory,project,projVersion,"qcChanges.html"),view = FALSE)
 
   if(any(names(qc) == "inThisCompilation")){
     #check for conflicts in "inThisCompilation"
@@ -551,14 +718,10 @@ mergeQcSheets <- function(params,data){
   #this should fix conflicts that shouldnt exist
   #qc <- resolveDumbConflicts(qc)
 
-  #remove fake conflicts
-  qc <- purrr::map_dfc(qc,removeFakeConflictsCol)
 
-  #remove duplicate rows
-  qc <- dplyr::distinct(qc)
 
   data$qc <- qc
-  data$qcA <- qcA
+  #data$qcA <- qcA
   return(data)
 }
 
@@ -571,12 +734,41 @@ mergeQcSheets <- function(params,data){
 #' @return
 #' @export
 updateTsFromMergedQc <- function(params,data){
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #drop unneeded variables.
+  neededData <- which(names(data) %in% c("sTS",
+                                         "qc",
+                                         "projVersion",
+                                         "dsidsOriginal",
+                                         "Dloaded",
+                                         "lastProjVersion",
+                                         "projVersion",
+                                         "filesToUltimatelyDelete","clNotes"))
+
+  #assignVariablesFromList(data)
+  for(i in neededData){
+    assign(names(data)[i],data[[i]])
+  }
+
+  rm("data")
+
   #5. Update sTS from merged qc
+  #p <- profvis({nsTS <- updateFromQC(sTS,qc,project,projVersion)})
   nsTS <- updateFromQC(sTS,qc,project,projVersion)
 
   nTS <- combineInterpretationByScope(nsTS)
+
+
+  #check for standardized terms
+  validationReport <- lipdR:::isValidAll(nTS,report = TRUE)
+
+  #write validation report to QC sheet
+
+  writeValidationReportToQCSheet(validationReport,qcId)
 
 
   if(standardizeTerms){#To do: #make this its own function
@@ -648,22 +840,33 @@ updateTsFromMergedQc <- function(params,data){
 
 
   newData <- list(nD = nD,
-                  nTS = nTS,
                   ndsn = ndsn,
                   nicdi = nicdi,
                   dsidKey = dsidKey,
-                  dsnInComp = dsnInComp)
+                  dsnInComp = dsnInComp,
+                  projVersion = projVersion,
+                  filesToUltimatelyDelete = filesToUltimatelyDelete)
 
 
-  data <- append(data,newData)
+  data <- newData
   return(data)
 
 
 }
 
 createDataPages <- function(params,data){
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
+
+  #re extract nTS
+  nTS <- extractTs(nD)
 
   #temporary
   #create changelog
@@ -709,15 +912,34 @@ createDataPages <- function(params,data){
 
   if(nrow(toCreate) > 0){
     #create new datapages for the appropriate files
+    w <- which(is.na(toCreate$dataSetNameNew.y))
     tc <- nD[toCreate$dataSetNameNew.y]
-    purrr::walk(tc,createDataWebPage,webdir = webDirectory)
+
+    if(length(w) > 0){
+      if(length(w) < nrow(toCreate)){
+        ndsn <- toCreate$dataSetNameNew.y[-w]
+        tc <- tc[-w]
+      }else{
+        stop("no datasets left to create")
+      }
+    }
+    purrr::walk(tc,quietly(createDataWebPage),webdir = webDirectory,.progress = TRUE)
   }
 
   #if  changes
   if(nrow(toUpdate) > 0){
     #create new datapages for the appropriate files
+    w <- which(is.na(toUpdate$dataSetNameNew.y))
     tu <- nD[toUpdate$dataSetNameNew.y]
-    purrr::walk(tu,updateDataWebPageForCompilation,webdir = webDirectory)
+    if(length(w) > 0){
+      if(length(w) < nrow(toUpdate)){
+        ndsn <- toUpdate$dataSetNameNew.y[-w]
+        tu <- tu[-w]
+      }else{
+        stop("no datasets left to update")
+      }
+    }
+    purrr::walk(tu,quietly(updateDataWebPageForCompilation),webdir = webDirectory,.progress = TRUE)
   }
 
 
@@ -742,9 +964,15 @@ createDataPages <- function(params,data){
 #' @return
 #' @export
 createProjectWebpages <- function(params,data){
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
 
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
 
   #create this version overview page
   createProjectSidebarHtml(project, projVersion,webDirectory)
@@ -755,7 +983,9 @@ createProjectWebpages <- function(params,data){
   createProjectOverviewPage("lipdverse", "current_version",webDirectory)
 
   #update data QC sheet
-  updateQueryCsv(nD)
+  if(updateLipdverse){
+    updateQueryCsv(nD)
+  }
 
   #get only those in the compilation
   nDic <- nD[unique(dsnInComp)]
@@ -773,147 +1003,149 @@ createProjectWebpages <- function(params,data){
                projVersion)
 
   #create a project map
-  itc <- inThisCompilation(nTS,project,projVersion)
-  nnTS <- nTS[which(itc)]
+  nnTS <- extractTs(nDic)
   createProjectMapHtml(nnTS,project = project,projVersion = projVersion,webdir = webDirectory)
 
 
-  #get lipdverse inventory
-  allDataDir <- list.dirs("~/Dropbox/lipdverse/html/data/",recursive = FALSE)
+  if(updateLipdverse){
 
-  getDataDetails <- function(datadir){
-    maxVers <- list.dirs(datadir)[-1] %>%
-      basename() %>%
-      stringr::str_replace_all(pattern = "_",replacement = ".") %>%
-      as.numeric_version() %>%
-      max() %>%
-      as.character() %>%
-      stringr::str_replace_all(pattern = "[.]",replacement = "_")
+    #get lipdverse inventory
+    allDataDir <- list.dirs("~/Dropbox/lipdverse/html/data/",recursive = FALSE)
 
-    dsid <- datadir %>% basename()
+    getDataDetails <- function(datadir){
+      maxVers <- list.dirs(datadir)[-1] %>%
+        basename() %>%
+        stringr::str_replace_all(pattern = "_",replacement = ".") %>%
+        as.numeric_version() %>%
+        max() %>%
+        as.character() %>%
+        stringr::str_replace_all(pattern = "[.]",replacement = "_")
 
-    fnames <- list.files(file.path(datadir,maxVers))
-    fnamesFull <- list.files(file.path(datadir,maxVers),full.names = TRUE)
+      dsid <- datadir %>% basename()
 
-    dsni <- fnames %>%
-      stringr::str_detect(pattern = ".lpd") %>%
-      which()
+      fnames <- list.files(file.path(datadir,maxVers))
+      fnamesFull <- list.files(file.path(datadir,maxVers),full.names = TRUE)
 
-    longest <- dsni[which.max(purrr::map_dbl(fnames[dsni],stringr::str_length))]
+      dsni <- fnames %>%
+        stringr::str_detect(pattern = ".lpd") %>%
+        which()
 
-    dsn <- fnames[longest] %>% stringr::str_remove(pattern = ".lpd")
+      longest <- dsni[which.max(purrr::map_dbl(fnames[dsni],stringr::str_length))]
 
-    path <- fnamesFull[longest]
+      dsn <- fnames[longest] %>% stringr::str_remove(pattern = ".lpd")
 
-    return(data.frame(
-      dsid = dsid,
-      dsn = dsn,
-      vers = stringr::str_replace_all(string = maxVers,pattern = "_",replacement = "."),
-      path = path))
+      path <- fnamesFull[longest]
 
+      return(data.frame(
+        dsid = dsid,
+        dsn = dsn,
+        vers = stringr::str_replace_all(string = maxVers,pattern = "_",replacement = "."),
+        path = path))
+
+
+    }
+
+
+
+    #sure that data files exist for all of the data in the database
+
+
+    lipdverseDirectory <- purrr:::map_dfr(allDataDir,getDataDetails)
+
+    LV <- readLipd(lipdverseDirectory$path)
+
+    allDataDetails <- data.frame(dsid = map_chr(LV,"datasetId"),
+                                 dsn = map_chr(LV,"dataSetName"),
+                                 vers = map_chr(LV,getVersion))
+
+
+
+    add <- dplyr::left_join(allDataDetails,lipdverseDirectory,by = "dsid")
+
+    lvtc <- function(versO,versN){
+      versO[is.na(versO)] <- "0.0.0"
+      versN[is.na(versN)] <- "0.0.0"
+      return(as.numeric_version(versO) > as.numeric_version(versN))
+    }
+
+    whichUpdated <- which(lvtc(add$vers.x,add$vers.y))
+
+    if(length(whichUpdated) > 0){
+      dsnu <- nD[add$dsn.x[whichUpdated]]
+
+
+      walk(dsnu,createDataWebPage,webdir = webDirectory)
+      #create lipdverse project pages
+    }
+
+
+    #find missing lipdverse htmls
+    lpht <- list.files("~/Dropbox/lipdverse/html/lipdverse/current_version/",pattern = ".html")
+    lphtdsn <- stringr::str_remove_all(lpht,pattern = ".html")
+
+    addh <- which(!allDataDetails$dsn %in% lphtdsn)
+
+    if(length(addh) > 0){
+      lphtdf <- allDataDetails[addh,]
+
+      #create all the project shell sites
+
+      purrr::pwalk(lphtdf,
+                   createProjectDataWebPage,
+                   webdir = webDirectory,
+                   project = "lipdverse",
+                   projVersion = "current_version")
+
+    }
+
+
+    #look for updated lipdverse htmls
+
+    lphtfull <- list.files("~/Dropbox/lipdverse/html/lipdverse/current_version/",pattern = ".html",full.names = TRUE)
+
+    lpht <- list.files("~/Dropbox/lipdverse/html/lipdverse/current_version/",pattern = ".html",full.names = FALSE)
+
+    getLipdverseHtmlVersions <- function(lfile){
+      lss <- readLines(lfile)
+      sbl <- max(which(stringr::str_detect(lss,"sidebar.html")))
+      vers <- as.character(stringr::str_match_all(lss[sbl],"\\d{1,}_\\d{1,}_\\d{1,}")[[1]])
+      vers <- str_replace_all(vers,"_",".")
+      return(vers)
+    }
+
+    lphtdsn <- stringr::str_remove_all(lpht,pattern = ".html")
+
+
+    htmlVers <- map_chr(lphtfull,getLipdverseHtmlVersions)
+
+    addv <- dplyr::left_join(allDataDetails,data.frame(dsn = lphtdsn,vers = htmlVers),by = "dsn")
+
+    whichUpdatedHtml <- which(lvtc(addv$vers.x,addv$vers.y))
+
+    if(length(whichUpdatedHtml) > 0){
+      lphtdf <- allDataDetails[whichUpdatedHtml,]
+
+      #create all the project shell sites
+
+      purrr::pwalk(lphtdf,
+                   createProjectDataWebPage,
+                   webdir = webDirectory,
+                   project = "lipdverse",
+                   projVersion = "current_version")
+
+    }
+    #lipdverse htmls to remove
+
+    # #don't do this for now, because it doesn't work with multiple data directories
+    # todeht <- which(!lphtdsn %in% allDataDetails$dsn)
+    # lphtdsn[todeht]
+
+    #update lipdverse map
+    LVTS <- extractTs(LV)
+
+    createProjectMapHtml(LVTS,project = "lipdverse",projVersion = "current_version",webdir = webDirectory)
 
   }
-
-
-
-  #sure that data files exist for all of the data in the database
-
-  lipdverseDirectory <- purrr:::map_dfr(allDataDir,getDataDetails)
-
-  LV <- readLipd(lipdverseDirectory$path)
-
-  allDataDetails <- data.frame(dsid = map_chr(LV,"datasetId"),
-                               dsn = map_chr(LV,"dataSetName"),
-                               vers = map_chr(LV,getVersion))
-
-
-
-  add <- dplyr::left_join(allDataDetails,lipdverseDirectory,by = "dsid")
-
-  lvtc <- function(versO,versN){
-    versO[is.na(versO)] <- "0.0.0"
-    versN[is.na(versN)] <- "0.0.0"
-    return(as.numeric_version(versO) > as.numeric_version(versN))
-  }
-
-  whichUpdated <- which(lvtc(add$vers.x,add$vers.y))
-
-  if(length(whichUpdated) > 0){
-    dsnu <- nD[add$dsn.x[whichUpdated]]
-
-
-    walk(dsnu,createDataWebPage,webdir = webDirectory)
-    #create lipdverse project pages
-  }
-
-
-  #find missing lipdverse htmls
-  lpht <- list.files("~/Dropbox/lipdverse/html/lipdverse/current_version/",pattern = ".html")
-  lphtdsn <- stringr::str_remove_all(lpht,pattern = ".html")
-
-  addh <- which(!allDataDetails$dsn %in% lphtdsn)
-
-  if(length(addh) > 0){
-    lphtdf <- allDataDetails[addh,]
-
-    #create all the project shell sites
-
-    purrr::pwalk(lphtdf,
-                 createProjectDataWebPage,
-                 webdir = webDirectory,
-                 project = "lipdverse",
-                 projVersion = "current_version")
-
-  }
-
-
-  #look for updated lipdverse htmls
-
-  lphtfull <- list.files("~/Dropbox/lipdverse/html/lipdverse/current_version/",pattern = ".html",full.names = TRUE)
-
-  lpht <- list.files("~/Dropbox/lipdverse/html/lipdverse/current_version/",pattern = ".html",full.names = FALSE)
-
-  getLipdverseHtmlVersions <- function(lfile){
-    lss <- readLines(lfile)
-    sbl <- max(which(stringr::str_detect(lss,"sidebar.html")))
-    vers <- as.character(stringr::str_match_all(lss[sbl],"[0-9]*_[0-9]*_[0-9]*")[[1]])
-    vers <- str_replace_all(vers,"_",".")
-    return(vers)
-  }
-
-  lphtdsn <- stringr::str_remove_all(lpht,pattern = ".html")
-
-
-  htmlVers <- map_chr(lphtfull,getLipdverseHtmlVersions)
-
-  addv <- dplyr::left_join(allDataDetails,data.frame(dsn = lphtdsn,vers = htmlVers),by = "dsn")
-
-  whichUpdatedHtml <- which(lvtc(addv$vers.x,addv$vers.y))
-
-  if(length(whichUpdatedHtml) > 0){
-    lphtdf <- allDataDetails[whichUpdatedHtml,]
-
-    #create all the project shell sites
-
-    purrr::pwalk(lphtdf,
-                 createProjectDataWebPage,
-                 webdir = webDirectory,
-                 project = "lipdverse",
-                 projVersion = "current_version")
-
-  }
-  #lipdverse htmls to remove
-
-  # #don't do this for now, because it doesn't work with multiple data directories
-  # todeht <- which(!lphtdsn %in% allDataDetails$dsn)
-  # lphtdsn[todeht]
-
-  #update lipdverse map
-  LVTS <- extractTs(LV)
-
-  createProjectMapHtml(LVTS,project = "lipdverse",projVersion = "current_version",webdir = webDirectory)
-
-
   #create lipdverse querying csv
 
 
@@ -923,7 +1155,9 @@ createProjectWebpages <- function(params,data){
 
   if(serialize){
     try(createSerializations(D = DF,webDirectory,project,projVersion),silent = TRUE)
-    try(createSerializations(D = LV,webDirectory,"lipdverse","current_version"),silent = TRUE)
+    if(updateLipdverse){
+      try(createSerializations(D = LV,webDirectory,"lipdverse","current_version"),silent = TRUE)
+    }
 
   }
 
@@ -964,8 +1198,15 @@ createProjectWebpages <- function(params,data){
 #' @return
 #' @export
 createWebpages <- function(params,data){
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
 
   #6 Update lipdverse
   if(updateWebpages){
@@ -1029,13 +1270,19 @@ createWebpages <- function(params,data){
 #' @return
 #' @export
 updateGoogleQc <- function(params,data){
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
   #7 Update QC sheet on google (and make a lastUpdate.csv file)
 
   qc2w <- qcF
   qc2w[is.null(qc2w) | qc2w == ""] <- NA
-
 
   #find differences for log
   #diff <- daff::diff_data(qcA,qc2w,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
@@ -1052,10 +1299,20 @@ updateGoogleQc <- function(params,data){
   updateDatasetCompilationQc(DF,project,projVersion,qcId)
 
   googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
-  googlesheets4::write_sheet(qc2w,ss = lastUpdateId,sheet = 1)
-  googlesheets4::write_sheet(qc2w,ss = qcId, sheet = 1)
-  googledrive::drive_rename(googledrive::as_id(qcId),name = stringr::str_c(project," v.",projVersion," QC sheet"))
+
+  #write the new qcsheet to file
   readr::write_csv(qc2w,path = file.path(webDirectory,project,"newLastUpdate.csv"))
+
+  #upload it to google drive for last update
+  googledrive::drive_update(media = file.path(webDirectory,project,"newLastUpdate.csv"),
+                            file = googledrive::as_id(lastUpdateId))
+
+  #copy the last update to the qcsheet:
+  googlesheets4::sheet_delete(ss = qcId,sheet = 1)
+  googlesheets4::sheet_copy(from_ss = lastUpdateId, from_sheet = 1,to_ss = qcId, to_sheet = "QC",.before = "datasetsInCompilation")
+
+  #write_sheet_retry(qc2w,ss = qcId, sheet = 1)
+  googledrive::drive_rename(googledrive::as_id(qcId),name = stringr::str_c(project," v.",projVersion," QC sheet"))
 
 
   #daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
@@ -1072,6 +1329,7 @@ updateGoogleQc <- function(params,data){
   #remove unneeded data
   neededVariablesMovingForward <-  c("dsidKey",
                                      "webDirectory",
+                                     "dsnInComp",
                                      "project",
                                      "lastVersionNumber",
                                      "DF",
@@ -1102,8 +1360,15 @@ updateGoogleQc <- function(params,data){
 #' @export
 finalize <- function(params,data){
 
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
 
   #8 finalize and write lipd files
 
@@ -1184,14 +1449,21 @@ finalize <- function(params,data){
 #' @export
 changeloggingAndUpdating <- function(params,data){
 
-  assignVariablesFromList(params)
-  assignVariablesFromList(data)
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
 
   #write project changelog
   #get last project's data. Try serialiation first:
   lastSerial <- try(load(file.path(webDirectory,project,lastVersionNumber,paste0(project,lastVersionNumber,".RData"))),silent = TRUE)
 
-  if(!class(lastSerial) == "try-error"){
+  if(!is(lastSerial,"try-error")){
     Dpo <- D
   }else{#try to load from lipd
     Dpo <- readLipd(file.path(webDirectory,project,lastVersionNumber))
@@ -1220,8 +1492,8 @@ changeloggingAndUpdating <- function(params,data){
   vt <- readr::read_csv(file.path(tempdir(),"versTemp.csv"),col_types = "cdddccccc")
 
   googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
-  wrote <- try(googlesheets4::sheet_write(vt,ss = versionMetaId,sheet = 1))
-  if(!class(wrote) == "try-error"){
+  wrote <- try(write_sheet_retry(vt,ss = versionMetaId,sheet = 1))
+  if(is(wrote,"try-error")){
     print("failed to write lipdverse versioning - do this manually")
   }
   #update datasetId information
@@ -1303,7 +1575,7 @@ createSerializations <- function(D,
 
 
 
-  if(hasEnsembles){
+  if(has.ensembles){
     print("writing again with ensembles")
     TS <- extractTs(Do)
     sTS <- splitInterpretationByScope(TSo)

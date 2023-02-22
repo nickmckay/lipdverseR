@@ -111,7 +111,7 @@ createVectorsForGroups <- function(TS,groupFrom,groupInto){
 #'
 #' @examples
 getInterpretationGroupDirections <- function(vec){
-  cs <- googlesheets4::sheets_read("1Y7ySazKZSil_NmZPI5TEE2MVQWK4wlb_6VxlAtxeSUo",sheet = 2)
+  cs <- googlesheets4::read_sheet("1Y7ySazKZSil_NmZPI5TEE2MVQWK4wlb_6VxlAtxeSUo",sheet = 2)
   gd <- matrix(NA,nrow = length(vec))
   for(n in 1:ncol(cs)){
     tc <- which(vec == names(cs)[n])
@@ -515,13 +515,13 @@ getConverter <- function(googId,howLong = 30){
 fixKiloyearsTs <- function(TS){
   vars <- pullTsVariable(TS,"paleoData_variableName")
   units <- pullTsVariable(TS,"paleoData_units")
-  if(class(units) == "try-error" | class(vars) == "try-error"){
+  if(is(units,"try-error") | is(vars,"try-error")){
     return(TS)
   }
   isAge <- which(vars=="age")
   if(length(isAge)>1){
     for(i in isAge){
-      if(!is.na(units[i])){
+      if(!any(is.na(units[i]))){
         if(stringr::str_detect(tolower(units[i]),"ky") | stringr::str_detect(tolower(units[i]),"ka")){
           TS[[i]]$paleoData_values <- TS[[i]]$paleoData_values*1000
           TS[[i]]$paleoData_units <- "yr bp"
@@ -543,14 +543,14 @@ fixKiloyearsTs <- function(TS){
 fixKiloyearsTsChron <- function(TS){
   vars <- try(pullTsVariable(TS,"chronData_variableName"))
   units <- try(pullTsVariable(TS,"chronData_units"))
-  if(class(units) == "try-error" | class(vars) == "try-error"){
+  if(is(units,"try-error") | is(vars,"try-error")){
     return(TS)
   }
 
   isAge <- which(grepl("age",vars))
   if(length(isAge) >= 1){
     for(i in isAge){
-      if(!is.na(units[i])){
+      if(!any(is.na(units[i]))){
         if(stringr::str_detect(tolower(units[i]),"ky") | stringr::str_detect(tolower(units[i]),"ka")){
           if(is.numeric(TS[[i]]$chronData_values)){
           TS[[i]]$chronData_values <- TS[[i]]$chronData_values*1000

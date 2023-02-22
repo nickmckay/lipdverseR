@@ -767,6 +767,9 @@ createChronDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
 
 #wrapper to create all for a LiPD file
 createWebComponents <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html"){
+  if(is.null(L)){
+    stop("This LiPD is empty")
+  }
   createSidebarHtml(L,webdir = webdir)
   try(createPaleoDataPlotHtml(L,webdir = webdir))
   try(createChronDataPlotHtml(L,webdir = webdir))
@@ -822,7 +825,7 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
 
 
-  if(is.null(L$changelog)){
+  if(all(is.null(L$changelog))){
     L <- initializeChangelog(L)
   }
 
@@ -839,7 +842,7 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
   #write dsid redirect html
   redirect <- readr::read_file(file.path(webdir,"redirectTemplate.html")) %>%
-    str_replace("redirectUrlHere",dsPath)
+    str_replace("redirectUrlHere",glue::glue("{dsid}/{vers_}/index.html"))
 
   readr::write_file(redirect,file = file.path(webdir,"data",dsid,"index.html"))
 
@@ -947,13 +950,43 @@ createInventory <- function(D){
 getInventory <- function(lipdDir,googEmail){
   invName <- paste0(basename(lipdDir),"-inventory")
   #googledrive::drive_auth(email = googEmail)
-  smatch <- googledrive::drive_find(pattern = invName,n_max = 1)
+  tries <- 0
+  while(TRUE){
+    smatch <- try(R.utils::withTimeout({googledrive::drive_find(pattern = invName,n_max = 1)},
+                                      timeout = 15,
+                                      onTimeout = "error"),silent = TRUE)
+
+    if(is(smatch,"try-error")){
+      tries <- tries + 1
+    }else{
+      break
+    }
+
+    if(tries > 20){
+      break
+    }
+  }
+
   if(nrow(smatch) == 0){
     createInventoryGoogle(lipdDir)
-    smatch <- googledrive::drive_find(pattern = invName,n_max = 1)
+    while(TRUE){
+      smatch <- try(R.utils::withTimeout({googledrive::drive_find(pattern = invName,n_max = 1)},
+                                         timeout = 15,
+                                         onTimeout = "error"),silent = TRUE)
+
+      if(is(smatch,"try-error")){
+        tries <- tries + 1
+      }else{
+        break
+      }
+
+      if(tries > 20){
+        break
+      }
+    }
   }
   ss <- smatch$id
-  #googlesheets4::sheets_auth(email = googEmail)
+  #googlesheets4::gs4_auth(email = googEmail)
   return(googlesheets4::read_sheet(ss = ss,sheet = "inventory"))
 }
 

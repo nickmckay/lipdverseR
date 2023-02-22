@@ -1,3 +1,11 @@
+updateLipdverseLink <- function(L){
+  vers <- getVersion(L)
+  L$lipdverseLink <- paste0("https://lipdverse.org/data/",L$datasetId,"/",stringr::str_replace_all(as.character(vers),"[.]","_"))
+  return(L)
+}
+
+
+
 #' Initialize a changelog for a LiPD object
 #'
 #' @description This function will create a changelog for a file that doesn't already have one.
@@ -860,6 +868,7 @@ updateChangelog <- function(L,
 
   #update the changes
   L$changelog <- append(list(thisChange),L$changelog)
+  L$lipdverseLink <- paste0("https://lipdverse.org/data/",L$datasetId,"/",stringr::str_replace_all(as.character(vers),"[.]","_"))
 
   return(L)
 
@@ -1188,9 +1197,9 @@ createProjectChangelog <- function(Dold,
 
     for(i in 1:nrow(cTg)){
       tdsid <- cTg$datasetId[i]
-      print(i)
-      print(cTg$dataSetNameOld[i])
-      print(cTg$dataSetNameNew[i])
+      # print(i)
+      # print(cTg$dataSetNameOld[i])
+      # print(cTg$dataSetNameNew[i])
 
       cl <- createChangelog(Dold[[cTg$dataSetNameOld[i]]],Dnew[[cTg$dataSetNameNew[i]]])
       if(nrow(cl) > 0){

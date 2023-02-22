@@ -79,7 +79,7 @@ if(makeWebpages){
 
 
   #authorize google
-  googlesheets4::sheets_auth(email = googEmail,cache = ".secret")
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
   googledrive::drive_auth(email = googEmail,cache = ".secret")
 
 #create a qc sheet

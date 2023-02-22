@@ -131,12 +131,21 @@ createQueryCsv <- function(D){
     purrr::map_chr(function(x) paste0(unlist(x[!is.na(x)]), collapse = '|'))
 
   ivcd <- which(stringr::str_detect(names(tibdg),"interpretation\\d{1,}_variableDetail$"))
-  tibdg$interp_Details <-  apply(tibdg, 1, function(x) unname(unlist(x[ivcd]))) %>%
-    apply(2, function(x) unlist(x[!is.na(x)])) %>%
-    purrr::map_chr(function(x) paste0(unlist(x[!is.na(x)]), collapse = '|'))
+  names(tibdg)[ivcd]
 
 
-  keeps <- c("archiveType", "paleoData_variableName", "paleoData_units","paleoData_proxy",
+  step1 <- apply(tibdg, 1, function(x) unname(unlist(x[ivcd])))
+
+  if(NCOL(step1) > 1){
+  step2 <- step1 %>%
+    apply(2, function(x) unlist(x[!is.na(x)]))
+  }else if(NCOL(step1) == 1){
+    step2 <- step1
+  }
+  tibdg$interp_Details <- purrr::map_chr(step2,function(x) paste0(unlist(x[!is.na(x)]), collapse = '|'))
+
+
+  keeps <- c("paleoData_TSid","archiveType", "paleoData_variableName", "paleoData_units","paleoData_proxy",
              "geo_latitude", "geo_longitude","geo_elevation", "minAge", "maxAge",
              "medianResolution", "auth", "datasetId", "dataSetName", "country",
              "continent", "interp_Vars", "interp_Details",

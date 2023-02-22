@@ -335,20 +335,50 @@ flattenAuthors <- function(vec){
 #' @examples
 getGoogleQCSheet <- function(qcSheetId){
   #download qc sheet
-  setwd(here::here())
   #x <- googledrive::drive_get(id = googledrive::as_id(qcSheetId))
   # qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
-  qc <- googlesheets4::sheets_read(ss = qcSheetId)
-  readr::write_csv(x = qc,file = here::here("googleQC.csv") )
+  qcNames <- names(googlesheets4::read_sheet(ss = qcSheetId,sheet = 1,range = "1:1"))
+  convo <- googlesheets4::read_sheet("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
+
+  qcType <- c()
+  for(i in 1:length(qcNames)){
+    ind <- which(qcNames[i] == convo$qcSheetName)
+    if(length(ind) == 1){
+      qcType[i] <- substr(convo$type[ind],start  = 1, stop = 1)
+    }else if(length(ind) == 0){
+      qcType[i] <- "c"
+    }else{
+      stop("multiple matches")
+    }
+  }
+
+  qcType[!qcType %in% c("c","n")] <- "c"
+  qcType <- paste0(qcType,collapse = "")
+
+  qc <- googlesheets4::read_sheet(ss = qcSheetId,sheet = 1,col_types = qcType)
 
   #remove any special characters
   rosetta <- lipdverseR::rosettaStone()
-  qcs <- readr::read_csv(here::here("googleQC.csv"),guess_max = 1e5) %>%
+  qcs <- qc %>%
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
+
+  readr::write_csv(qcs,file = here::here("googleQC.csv"))
 
   return(qcs)
 }
 
+
+
+
+unlistCol <- function(col){
+  if(is(col,"list")){
+    col <- as.vector(col)
+    return(col)
+
+  }else{
+    return(col)
+  }
+}
 
 #TO DO - update to export error logging.
 #' update a split Timeseries object from a google QC sheet
@@ -430,26 +460,31 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
   TSidList <- c(extraTSid, qcTSid[rev(seq_along(qcTSid))])
 
 
+ counter <- 0
+ pb = txtProgressBar(min = 0, max = length(TSidList), initial = 0)
 
   for(thisTSid in TSidList){
+    counter <- counter + 1
+    setTxtProgressBar(pb,counter)
+
     i = which(TSid == thisTSid)
     if(length(i)>1){
-      report = rbind(report,stringr::str_c("Too many matches for TSid: ",thisTSid ," for variableName: ",sTS[[i[1]]]$paleoData_variableName ," in dataset:",sTS[[i[1]]]$dataSetName) )
+      #report = rbind(report,stringr::str_c("Too many matches for TSid: ",thisTSid ," for variableName: ",sTS[[i[1]]]$paleoData_variableName ," in dataset:",sTS[[i[1]]]$dataSetName) )
     }else if(length(i)<1){
-      report = rbind(report,stringr::str_c("No matches for TSid in database: ",thisTSid) )
-    }else{#then contunue
+      #report = rbind(report,stringr::str_c("No matches for TSid in database: ",thisTSid) )
+    }else{#then continue
       #find which QC row
       qci <- which(qcs$TSid %in% thisTSid)
       #if doesn't exist, report out:
       if(length(qci)==0){
         if(any(grepl(sTS[[i]]$paleoData_variableName,c("year","depth","age")))){
-          report = rbind(report,stringr::str_c("TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName, " doesn't exist in QC sheet") )
+          #report = rbind(report,stringr::str_c("TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName, " doesn't exist in QC sheet") )
         }else{
-          reportY = rbind(reportY,stringr::str_c("TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName, " doesn't exist in QC sheet") )
+          #reportY = rbind(reportY,stringr::str_c("TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName, " doesn't exist in QC sheet") )
         }
       }else if(length(qci)>1){#then too many matches
         #stop("too many TSid matches")
-        report = rbind(report,stringr::str_c("Too many matches for TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName) )
+        #report = rbind(report,stringr::str_c("Too many matches for TSid: ",thisTSid ," for variableName: ",sTS[[i]]$paleoData_variableName ," in dataset:",sTS[[i]]$dataSetName) )
       }else{#loop through variables and force an update
         thisTSnames <- unique(c(names(sTS[[i]]),allNamesConvo)) #find names for this ts, combine with convo names for updates
 
@@ -477,6 +512,8 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
               stop("variable type not recognized")
             }
 
+            #get the varFun value
+            vfr <- varFun(qcs[qci,rn])
 
             #apply to all timeseries from this dataset?
             sname <- stringr::str_split(thisTSnames[j],"_")
@@ -493,19 +530,12 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
             if(apply2all){#then fill it in for all in dataset
               #print(sname)
               dsni <- which(sTS[[i]]$dataSetName == dsn)
-              for(k in 1:length(dsni)){
-                if (is.null(varFun(qcs[qci,rn]))){
-                  newTS[[dsni[k]]][thisTSnames[j]] <- NULL
-                }else{
-                  if(varType == "author"){
-                    1+1
-                  }
-                  newTS[[dsni[k]]][thisTSnames[j]] <- varFun(qcs[qci,rn])
-                }
+              for(k in 1:length(dsni)){#vectorize this?
+                newTS[[dsni[k]]][thisTSnames[j]] <- vfr
               }
             }else{#then just for this one timeseries
               if(varType == "inCompilation"){
-                inThisComp <- varFun(qcs[qci,rn])
+                inThisComp <- vfr
 
                 if(isTRUE(inThisComp)){#then we need to add it to the compilation
                   #get all the names of the compilations
@@ -535,7 +565,7 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
                   }
                 }
               }else{#everything else
-                newTS[[i]][thisTSnames[j]] <- varFun(qcs[qci,rn])
+                newTS[[i]][thisTSnames[j]] <- vfr
 
               }
               if(length(rn) > 1){
@@ -547,7 +577,8 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
       }
     }
   }
-  write_csv(x = as.data.frame(report),path = "~/GitHub/lipdverse/updateQc_log.csv")
+ close(pb)
+ # write_csv(x = as.data.frame(report),path = "~/GitHub/lipdverse/updateQc_log.csv")
   return(newTS)
 }
 
@@ -564,7 +595,11 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
 #' @import dplyr
 #' @import geoChronR
 #' @return a data.frame QC sheet
-createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.specific = c("depth","yr"),ageOrYear = "age",compilationName = NA,compVersion = NA){
+createQCdataFrame <- function(sTS,
+                              templateId,
+                              to.omit = c("age","year"),
+                              to.omit.specific = c("depth","yr"),
+                              ageOrYear = "age",compilationName = NA,compVersion = NA){
   #setup reporting
   report <- c()
   noMatch <- c()
@@ -578,7 +613,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
 
   qcs <- try(googlesheets4::read_sheet(ss=templateId,range = "1:2"))
 
-  qcs <- googlesheets4::read_sheet(ss=templateId,range = "1:2")
+  #qcs <- googlesheets4::read_sheet(ss=templateId,range = "1:2")
 
   #download name conversion
   # convo <-  googledrive::as_id("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w") %>%
@@ -635,7 +670,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
     allAge <- vector(mode = "list",length = length(fsTS))
   }
 
-  if(ageOrYear=="age"){
+  if(all(ageOrYear=="age")){
 
     #convert years, calculate min/max years
     toRep <- which(sapply(allAge,length)==0 & sapply(allYear,length)>0)
@@ -672,7 +707,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
     #is annual
     annOpts <- c("1 2 3 4 5 6 7 8 9 10 11 12","ANN")
     ci1s <- try(pullTsVariable(fsTS,"climateInterpretation1_seasonality"))
-    if(!class(ci1s)=="try-error"){
+    if(!is(ci1s,"try-error")){
       ina <- which(is.na(ci1s))
       nci1s <- matrix(FALSE,nrow = length(ci1s) )
       nci1s[ina] <- NA
@@ -708,7 +743,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
 
     #ages per kyr
     nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
-    if(!class(nUniqueGoodAges)=="try-error"){
+    if(!is(nUniqueGoodAges,"try-error")){
       maxHoloAge <- maxAge
       maxHoloAge[maxAge>12000] <- 12000
       agesPerKyr <- 1000*nUniqueGoodAges/(maxHoloAge-minAge)
@@ -719,7 +754,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
     #other ages per kyr
 
     nUniqueOtherAges <- try(pullTsVariable(fsTS,"nUniqueOtherAges"))
-    if(!class(nUniqueOtherAges)=="try-error"){
+    if(!is(nUniqueOtherAges,"try-error")){
       maxHoloAge <- maxAge
       maxHoloAge[maxAge>12000] <- 12000
       otherAgesPerKyr <- 1000*nUniqueOtherAges/(maxHoloAge-minAge)
@@ -744,7 +779,7 @@ createQCdataFrame <- function(sTS,templateId,to.omit = c("age","year"),to.omit.s
 
     #has ages
     nUniqueAges <- try(pullTsVariable(fsTS,"nUniqueAges"))
-    if(class(nUniqueAges)=="try-error"){
+    if(is(nUniqueAges,"try-error")){
       nUniqueAges <- matrix(0,nrow = length(fsTS) )
     }
 
