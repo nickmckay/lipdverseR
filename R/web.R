@@ -842,7 +842,7 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
   #write dsid redirect html
   redirect <- readr::read_file(file.path(webdir,"redirectTemplate.html")) %>%
-    str_replace("redirectUrlHere",glue::glue("{dsid}/{vers_}/index.html"))
+    str_replace("redirectUrlHere",glue::glue("{vers_}/index.html"))
 
   readr::write_file(redirect,file = file.path(webdir,"data",dsid,"index.html"))
 
