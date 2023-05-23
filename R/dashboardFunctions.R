@@ -463,7 +463,9 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
         vars <- str_extract(pubNames,str_c("(?<=interpretation",as.numeric(p),"_).*$")) #get all.
         thisRmd <- writeCollapsibleChunks(thisRmd,thisTS,name = str_c(bigName,as.character(p)),vars = vars,tsi = cc,forceName = as.character(p),indent = 20)
       }
-      if(is.na(thisRmd)){stop("asdas")}
+      if(is.na(thisRmd)){
+        stop(glue("Error creating dashboard with: {as.character(map.meta$dataSetName[i])}"))
+      }
 
       #close paleo setion
       thisRmd <- str_c(thisRmd,"</details>",sep = "\n")

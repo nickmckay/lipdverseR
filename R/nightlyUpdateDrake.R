@@ -42,7 +42,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 
 
   #compare QC update times
-  versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
+  versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
@@ -111,7 +111,7 @@ tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvP
   googlesheets4::gs4_auth(email = googEmail)
 
   #get last versions udsn
-  versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
+  versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
@@ -158,7 +158,7 @@ lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_
   googlesheets4::gs4_auth(email = googEmail)
 
   #get last versions udsn
-  versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
+  versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
@@ -265,11 +265,31 @@ loadInUpdatedData <- function(params){
     #getDatasetInCompilationFromQC()
 
     #0. Figure out which datasets to load based on QC sheet.
-    dscomp <- googlesheets4::read_sheet(ss = qcId,sheet = "datasetsInCompilation")
+    dscomp <- read_sheet_retry(ss = qcId,sheet = "datasetsInCompilation")
+
+    #make sure that all names there are in the lipdDir, and that there are no duplicates
+    if(any(duplicated(dscomp$dsn))){
+      stop(glue::glue("There are duplicated dataSetNames in 'datasetsInCompilation': {dscomp$dsn[duplicated(dscomp$dsn)]}"))
+    }
+
+    #get all files in lipdverse
+    af <-  list.files(lipdDir,pattern = ".lpd",full.names = FALSE) %>% stringr::str_remove_all(".lpd")
+
+    #see if any in dscomp don't exist
+    missing <- which(!dscomp$dsn %in% af)
+
+    #remove this next time
+    dscomp <- dscomp[-missing,]
+
+    #see if any in dscomp don't exist
+    missing <- which(!dscomp$dsn %in% af)
+
+    if(length(missing) > 0){
+      stop(glue("{length(missing)} datasets in 'datasetsInCompilation' don't exist in the database: {paste(dscomp$dsn[missing],collapse = '; ')}"))
+    }
 
 
     #look for new files not in the dscomp page
-    af <-  list.files(lipdDir,pattern = ".lpd",full.names = FALSE) %>% stringr::str_remove_all(".lpd")
 
     #which local files not in dscomp
     new <- which(!af %in% dscomp$dsn)
@@ -386,10 +406,62 @@ getQcInfo <- function(params,data){
   #get the google qc sheet
   qcB <- getGoogleQCSheet(qcId)
 
+  #reolve conflicts
+  qcB <- resolveQcConflict(qcB)
+
+  #make sure no terms are missing
+  if(any(is.na(qcB$TSid))){
+    stop("TSids missing from google QC sheet")
+  }
+
+  if(any(is.na(qcB$dataSetName))){
+    stop("dataSetName missing from google QC sheet")
+  }
+
+  if(any(is.na(qcB$variableName))){
+    stop("variableName missing from google QC sheet")
+  }
+
 
   if(qcStandardizationCheck){
     #check QCsheet terms are valid
     #replace them with other terms if they're not
+
+    allSheetNames <- googlesheets4::sheet_names(ss = qcId)
+
+    #check for year, age, depth fixes
+    allInvalid <- allSheetNames[grepl(allSheetNames,pattern = "-invalid")]
+
+    for(av in allInvalid){
+      thisOne <- read_sheet_retry(ss = qcId,sheet = av)
+      #check to find TSids not in QC sheet AND in TS
+      atsid <- pullTsVariable(TS,"paleoData_TSid")
+      if("number" %in% names(thisOne)){
+        #if there's a number, then do all but number one
+        tochange <- which(thisOne$number > 1 & thisOne$TSid %in% atsid)
+      }else{
+        #if there's not a number, only do those without a TSid in the QCSheet
+        tochange <- which(!thisOne$TSid %in% qcB$TSid & thisOne$TSid %in% atsid)
+      }
+
+      for(tci in tochange){
+        tsidi <- which(thisOne$TSid[tci] == atsid)
+
+        vnts <- str_remove(av,"-invalid")
+
+        if(!is.null(thisOne$number[tsidi])){#then we need to append the number into the name
+          vnts <- str_replace(vnts,"_",paste0(thisOne$number[tsidi],"_"))
+        }
+
+        if(!is.na(names(TS[[tsidi]][vnts]))){
+          print(glue::glue("Changed special column {vnts} ({thisOne$TSid[tci]}) from {TS[[tsidi]][[vnts]]} to {thisOne[[4]][tci]}"))
+          TS[[tsidi]][[vnts]] <- thisOne[[4]][tci]
+        }
+
+      }
+
+    }
+
 
     stando <- lipdR::standardizeQCsheetValues(qcB)
     qcB <- stando$newSheet
@@ -397,13 +469,12 @@ getQcInfo <- function(params,data){
     if(length(stando$remainingInvalid) > 0){#standardization issues. Do a few things:
 
       #check to see if the existing invalid sheets contain corrected information....
-      convo <- googlesheets4::read_sheet(ss="1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
-      allSheetNames <- googlesheets4::sheet_names(ss = qcId)
+      convo <- read_sheet_retry(ss="1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
 
       for(rv in names(stando$remainingInvalid)){
         tivs <- allSheetNames[startsWith(x = allSheetNames,prefix = rv)]
         if(length(tivs) == 1){
-          thisOne <- googlesheets4::read_sheet(ss = qcId,sheet = tivs)
+          thisOne <- read_sheet_retry(ss = qcId,sheet = tivs)
           convoi <- which(convo$tsName == rv)
           if(length(convoi) != 1){
             if(rv == "interpretation_variable"){
@@ -809,8 +880,7 @@ updateTsFromMergedQc <- function(params,data){
   #check to see which datasets are this compilation
   itc <- inThisCompilation(nTS,project,projVersion)
   ndsn <- pullTsVariable(nTS, "dataSetName")
-  dsnInComp <- ndsn[map_lgl(itc,isTRUE)]
-  dsnNotInComp <- ndsn[!map_lgl(itc,isTRUE)]
+  dsnInComp <- unique(ndsn[map_lgl(itc,isTRUE)])
   nicdi <- which(!names(nD) %in% dsnInComp)
 
 
@@ -821,18 +891,44 @@ updateTsFromMergedQc <- function(params,data){
                      dataSetNameNew = map_chr(nD,"dataSetName"),
                      dataSetVersion = purrr::map_chr(nD,getVersion))
 
+  #deal with missing datasetIds...
+
+  if(any(is.na(dsidsNew$datasetId))){
+    bbb <- which(is.na(dsidsNew$datasetId))
+    for(bb in bbb){
+      bbdsn <- dsidsNew$dataSetNameNew[bb]
+      olddsid <- dsidsOriginal$datasetId[dsidsOriginal$dataSetNameOrig == bbdsn]
+      #see if that works
+      if(length(olddsid) == 1){
+        if(!any(olddsid == dsidsNew$datasetId[-bbb])){
+          #then this seems ok
+          dsidsNew$datasetId[bb] <- olddsid
+          nD[[bbdsn]]$datasetId <- olddsid
+        }
+      }
+    }
+  }
+  #if there still are bad ones stop.
+  if(any(is.na(dsidsNew$datasetId))){
+    stop(glue("paste(dsidsNew$datasetId[is.na(dsidsNew$datasetId)],collapse = ', )} are missing dsids in the new data which is bad.'"))
+  }
+
 
   #figure out change notes
 
   dsidKey <- dplyr::left_join(dsidsNew,dsidsOriginal,by = "datasetId")
 
-
+print("Updating changelogs....")
   #loop through DSid and create changelog (this is for files, not for the project)
   for(dfi in 1:nrow(dsidKey)){
     newName <- dsidKey$dataSetNameNew[dfi]
     oldName <- dsidKey$dataSetNameOrig[dfi]
 
-    cl <- createChangelog(Dloaded[[oldName]],nD[[newName]])
+    cl <- try(createChangelog(Dloaded[[oldName]],nD[[newName]]))
+    if(is(cl,"try-error")){
+      stop("Error in dataset changelogging")
+    }
+
     nD[[newName]] <- updateChangelog(nD[[newName]],
                                      changelog = cl,
                                      notes = dsidKey$changes[dfi])
@@ -923,6 +1019,7 @@ createDataPages <- function(params,data){
         stop("no datasets left to create")
       }
     }
+    print("Creating new data webpages...")
     purrr::walk(tc,quietly(createDataWebPage),webdir = webDirectory,.progress = TRUE)
   }
 
@@ -939,6 +1036,7 @@ createDataPages <- function(params,data){
         stop("no datasets left to update")
       }
     }
+    print("Updating data webpages...")
     purrr::walk(tu,quietly(updateDataWebPageForCompilation),webdir = webDirectory,.progress = TRUE)
   }
 
@@ -982,23 +1080,20 @@ createProjectWebpages <- function(params,data){
   createProjectSidebarHtml("lipdverse", "current_version",webDirectory)
   createProjectOverviewPage("lipdverse", "current_version",webDirectory)
 
-  #update data QC sheet
-  if(updateLipdverse){
-    updateQueryCsv(nD)
-  }
-
   #get only those in the compilation
-  nDic <- nD[unique(dsnInComp)]
+  nDic <- nD[unique(dsnInComp)] #the unique shouldn't be necessary here, but also shouldn't hurt since it was uniqued earlier
 
   tcdf <- data.frame(dsid = map_chr(nDic,"datasetId"),
                      dsn = map_chr(nDic,"dataSetName"),
                      vers = map_chr(nDic,getVersion))
 
   #create all the project shell sites
+  print(glue::glue("Creating {nrow(tcdf)} project shell sites"))
 
   purrr::pwalk(tcdf,
-               createProjectDataWebPage,
+               quietly(createProjectDataWebPage),
                webdir = webDirectory,
+               .progress = TRUE,
                project,
                projVersion)
 
@@ -1006,8 +1101,8 @@ createProjectWebpages <- function(params,data){
   nnTS <- extractTs(nDic)
   createProjectMapHtml(nnTS,project = project,projVersion = projVersion,webdir = webDirectory)
 
-
   if(updateLipdverse){
+    updateQueryCsv(nD)
 
     #get lipdverse inventory
     allDataDir <- list.dirs("~/Dropbox/lipdverse/html/data/",recursive = FALSE)
@@ -1036,11 +1131,14 @@ createProjectWebpages <- function(params,data){
 
       path <- fnamesFull[longest]
 
+      mod.time <- file.info(path)$mtime
+
       return(data.frame(
         dsid = dsid,
         dsn = dsn,
         vers = stringr::str_replace_all(string = maxVers,pattern = "_",replacement = "."),
-        path = path))
+        path = path,
+        versionCreated = mod.time))
 
 
     }
@@ -1089,7 +1187,7 @@ createProjectWebpages <- function(params,data){
       lphtdf <- allDataDetails[addh,]
 
       #create all the project shell sites
-
+      print(glue::glue("Creating {length(addh)} new lipdverse shell sites"))
       purrr::pwalk(lphtdf,
                    createProjectDataWebPage,
                    webdir = webDirectory,
@@ -1126,7 +1224,7 @@ createProjectWebpages <- function(params,data){
       lphtdf <- allDataDetails[whichUpdatedHtml,]
 
       #create all the project shell sites
-
+      print(glue::glue("Updating {length(whichUpdatedHtml)} lipdverse shell sites"))
       purrr::pwalk(lphtdf,
                    createProjectDataWebPage,
                    webdir = webDirectory,
@@ -1154,9 +1252,9 @@ createProjectWebpages <- function(params,data){
   DF <- nDic
 
   if(serialize){
-    try(createSerializations(D = DF,webDirectory,project,projVersion),silent = TRUE)
+    try(createSerializations(D = DF,webDirectory,project,projVersion),silent = FALSE)
     if(updateLipdverse){
-      try(createSerializations(D = LV,webDirectory,"lipdverse","current_version"),silent = TRUE)
+      try(createSerializations(D = LV,webDirectory,"lipdverse","current_version"),silent = FALSE)
     }
 
   }
@@ -1377,8 +1475,8 @@ finalize <- function(params,data){
 
 
   #9 update the google version file
-  versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId),col_types = "cdddccccc")
-  #versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
+  versionDf <- read_sheet_retry(googledrive::as_id(versionMetaId),col_types = "cdddccccc")
+  #versionDf <- read_sheet_retry(googledrive::as_id(versionMetaId))
   versionDf$versionCreated <- lubridate::ymd_hms(versionDf$versionCreated)
 
 
@@ -1502,6 +1600,9 @@ changeloggingAndUpdating <- function(params,data){
                               version = projVersion,
                               dateUpdated = lubridate::today())
 
+  #update vocab
+  try(updateVocabWebsites())
+
   #give permissions back
   #drive_share(as_id(qcId),role = "writer", type = "user",emailAddress = "")
   #update the files
@@ -1558,8 +1659,8 @@ createSerializations <- function(D,
   }
 
   TS <- extractTs(D)
-  sTS <- splitInterpretationByScope(TS)
-  save(list = c("D","TS","sTS"),file = file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".RData")))
+  #sTS <- splitInterpretationByScope(TS)
+  save(list = c("D","TS"),file = file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,".RData")))
 
 
 
@@ -1578,8 +1679,8 @@ createSerializations <- function(D,
   if(has.ensembles){
     print("writing again with ensembles")
     TS <- extractTs(Do)
-    sTS <- splitInterpretationByScope(TSo)
-    save(list = c("D","TS","sTS"),file = file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,"-ensembles.RData")))
+    #sTS <- splitInterpretationByScope(TS)
+    save(list = c("D","TS"),file = file.path(webDirectory,project,projVersion,stringr::str_c(project,projVersion,"-ensembles.RData")))
 
     #write files to a temporary directory
     lpdtmpens <- file.path(tempdir(),"lpdTempSerializationEnsembles")

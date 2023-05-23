@@ -337,8 +337,8 @@ getGoogleQCSheet <- function(qcSheetId){
   #download qc sheet
   #x <- googledrive::drive_get(id = googledrive::as_id(qcSheetId))
   # qc <- googledrive::drive_download(x,path = here::here("googleQC.csv"),type = "csv",overwrite = T)
-  qcNames <- names(googlesheets4::read_sheet(ss = qcSheetId,sheet = 1,range = "1:1"))
-  convo <- googlesheets4::read_sheet("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
+  qcNames <- names(read_sheet_retry(ss = qcSheetId,sheet = 1,range = "1:1"))
+  convo <- read_sheet_retry("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
 
   qcType <- c()
   for(i in 1:length(qcNames)){
@@ -355,7 +355,7 @@ getGoogleQCSheet <- function(qcSheetId){
   qcType[!qcType %in% c("c","n")] <- "c"
   qcType <- paste0(qcType,collapse = "")
 
-  qc <- googlesheets4::read_sheet(ss = qcSheetId,sheet = 1,col_types = qcType)
+  qc <- read_sheet_retry(ss = qcSheetId,sheet = 1,col_types = qcType)
 
   #remove any special characters
   rosetta <- lipdverseR::rosettaStone()
@@ -611,9 +611,9 @@ createQCdataFrame <- function(sTS,
   # qcs <- readr::read_csv(here::here("template.csv"),guess_max = 10^4)
 
 
-  qcs <- try(googlesheets4::read_sheet(ss=templateId,range = "1:2"))
+  qcs <- try(read_sheet_retry(ss=templateId,range = "1:2"))
 
-  #qcs <- googlesheets4::read_sheet(ss=templateId,range = "1:2")
+  #qcs <- read_sheet_retry(ss=templateId,range = "1:2")
 
   #download name conversion
   # convo <-  googledrive::as_id("1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w") %>%
@@ -623,7 +623,7 @@ createQCdataFrame <- function(sTS,
   #   as.character() %>%
   #   read_csv()
 
-  convo <- googlesheets4::read_sheet(ss="1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
+  convo <- read_sheet_retry(ss="1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
 
 
   #filter rows
@@ -925,7 +925,7 @@ createNewQCSheet <- function(qcdf,qcName){
 createNewProject <- function(templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",project = "newProject", versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY"){
 
   #update the google version file
-  versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
+  versionDf <- read_sheet_retry(googledrive::as_id(versionMetaId))
 
   if(any(versionDf$project == project)){
     stop(paste("A project by the name",project,"already exists. Please provide a new name if this is a new project."))
@@ -953,7 +953,7 @@ createNewProject <- function(templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0k
 
   #copy the template file
   #template <- getGoogleQCSheet(templateID)
-  template <- googlesheets4::read_sheet(ss = templateID,col_names = TRUE,range = "1:2")
+  template <- read_sheet_retry(ss = templateID,col_names = TRUE,range = "1:2")
   template <- template[1,]
   template[] <- NA
 

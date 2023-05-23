@@ -1,5 +1,6 @@
 .libPaths("/Library/Frameworks/R.framework/Versions/4.2/Resources/library")
 rmarkdown::find_pandoc(dir = "/Applications/RStudio.app/Contents/MacOS/quarto/bin/tools")
+setwd("/Users/nicholas/GitHub/lipdverseR/")
 
 devtools::load_all(".")
 #library(lipdverseR)
@@ -11,7 +12,8 @@ library(drake)
 library(profvis)
 setwd("/Users/nicholas/GitHub/lipdverseR/")
 
-lipdR:::checkStandardTables()
+lipdR:::updateStandardTables()
+#lipdR:::checkStandardTables()
 
 googEmail <- "nick.mckay2@gmail.com"
 #authorize google
@@ -75,7 +77,7 @@ HoloceneAbruptChange <- drake_plan(
                        googEmail = "nick.mckay2@gmail.com",
                        updateWebpages = TRUE,
                        updateLipdverse = TRUE,
-                       qcStandardizationCheck = FALSE,
+                       qcStandardizationCheck = TRUE,
                        standardizeTerms = FALSE,
                        serialize = TRUE),
   # updateNeeded = checkIfUpdateNeeded(params),
@@ -250,7 +252,7 @@ while(TRUE){
   }
   print(paste("try",count))
   try(
-    drake::make(RAW,lock_envir = FALSE)
+    drake::make(HoloceneAbruptChange,lock_envir = FALSE)
   )
   prog <- drake::drake_progress()
   if(all(prog$progress == "done")){
@@ -261,7 +263,14 @@ while(TRUE){
 af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE)
 
 
+#update vocab website
+#source("~/GitHub/lipdverse-website/updateWebserver.R")
   #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
+
+
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/HoloceneAbruptChange/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneAbruptChange
+
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/RapidArcticWarming/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/RapidArcticWarming
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/lipdverse/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/lipdverse

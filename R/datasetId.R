@@ -39,7 +39,7 @@ updateDatasetIdDereferencer <- function(D,
     dplyr::distinct()
 
 #get google sheet
-  drms <- googlesheets4::read_sheet("1zIaVN-zbuK6YqOvbiwLdLnFRh6QC9ljvDq9qB_gwB-8")
+  drms <- read_sheet_retry("1zIaVN-zbuK6YqOvbiwLdLnFRh6QC9ljvDq9qB_gwB-8")
 
   ol <- nrow(drms)
 

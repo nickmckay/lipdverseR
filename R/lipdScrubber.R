@@ -111,7 +111,7 @@ createVectorsForGroups <- function(TS,groupFrom,groupInto){
 #'
 #' @examples
 getInterpretationGroupDirections <- function(vec){
-  cs <- googlesheets4::read_sheet("1Y7ySazKZSil_NmZPI5TEE2MVQWK4wlb_6VxlAtxeSUo",sheet = 2)
+  cs <- read_sheet_retry("1Y7ySazKZSil_NmZPI5TEE2MVQWK4wlb_6VxlAtxeSUo",sheet = 2)
   gd <- matrix(NA,nrow = length(vec))
   for(n in 1:ncol(cs)){
     tc <- which(vec == names(cs)[n])
@@ -316,11 +316,14 @@ removeFakeConflictsCol <- function(col){
 #' @examples
 removeFakeConflicts <- function(string){
   up <- string #by default return this
-  sout <- str_match(string, "[)))] (.*) /// (.*)")
+#  sout <- str_match(string, "[)))] (.*) /// (.*)")
+  secondPiece <- str_match(string, "[))) ]+ (.*) ///")[2]
+  thirdPiece <- str_match(string, "/// (.*)")[2]
+
   if(is.character(string)){
-    if(!all(is.na(sout))){
-      if(sout[2] == sout[3]){
-        up <- sout[2]
+    if(!all(is.na(secondPiece)) & !all(is.na(thirdPiece))){
+      if(secondPiece == thirdPiece){
+        up <- secondPiece
       }
     }
   }

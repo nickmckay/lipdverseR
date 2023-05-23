@@ -26,7 +26,7 @@ updateDatasetCompilationQc <- function(D,
 
   #compare with existing sheet, make sure datasetIds online are included
 
-  googDsComp <- googlesheets4::read_sheet(ss = qcSheetId, sheet = "datasetsInCompilation",col_types = "c")
+  googDsComp <- read_sheet_retry(ss = qcSheetId, sheet = "datasetsInCompilation",col_types = "c")
 
   missing <- dplyr::filter(googDsComp, ! dsid %in% dscomp$dsid)
 
@@ -34,39 +34,28 @@ updateDatasetCompilationQc <- function(D,
 
   dscomp <- dplyr::bind_rows(dscomp,missing) %>% dplyr::arrange(dsn)
 
+  #make sure that all that were marked TRUE previously are still marked true. This is to prevent new datasets from being removed from this list before the curator has the chance to add to compilation. It also means that you can only remove datasets by marking them FALSE.
+  it <- googDsComp$dsid[googDsComp$inComp == "TRUE"]
+  tbt <- which(dscomp$dsid  %in% it)
+  dscomp$inComp[tbt] <- "TRUE"
 
 
   dscomp$instructions <- ""
 
   dscomp$instructions[1] <- 'Any datasets marked as FALSE will not be considered for the update, NA or TRUE will be considered.'
 
-  tries <- 0
-  while(TRUE){
-    wrote <- try(R.utils::withTimeout({googlesheets4::sheet_write(dscomp, ss = qcSheetId, sheet = "datasetsInCompilation")},
-                                      timeout = 15,
-                                      onTimeout = "error"),silent = TRUE)
 
-    if(is(wrote,"try-error")){
-      tries <- tries + 1
-    }else{
-      break
-    }
-
-    if(tries > 20){
-      break
-    }
-  }
-
+  write_sheet_retry(dscomp, ss = qcSheetId, sheet = "datasetsInCompilation")
 
 
 }
 
 getDatasetInCompilationFromQC <- function(qcId = "1tYuhgaDPx1HxdSneL0Nl1Aq7LIM14jzbn5Ke55ha_z0"){
-  qc <- googlesheets4::read_sheet(ss =  qcId,sheet = 1)
+  qc <- read_sheet_retry(ss =  qcId,sheet = 1)
   if(any(names(qc) == "datasetId")){#we can do more
     stop("you have to code this")
   }else{
-    dsnincomp <- googlesheets4::read_sheet(ss =  qcId,sheet = 2)
+    dsnincomp <- read_sheet_retry(ss =  qcId,sheet = 2)
 
     datasetsToInclude <- qc %>%
       dplyr::filter(inThisCompilation != "FALSE") %>%

@@ -32,7 +32,9 @@ createDatabaseReference <- function(D){
 #' @param dbPath local path to the database
 #' @export
 addLipdToDatabase <- function(L,
-                              dbPath = "/Users/nicholas/Dropbox/lipdverse/database/"){
+                              dbPath = "/Users/nicholas/Dropbox/lipdverse/database/",
+                              standardize = FALSE){
+
 
 
   if(exists("databaseRef",envir = .GlobalEnv)){
@@ -48,6 +50,10 @@ addLipdToDatabase <- function(L,
     print(glue::glue("{L$dataSetName} is missing a datasetId. Generating one now."))
     L$datasetId <- lipdverseR::createDatasetId()
   }
+
+
+
+
 
   #see if datasetId exists
   if(L$datasetId %in% databaseRef$datasetId){
@@ -118,6 +124,13 @@ addLipdToDatabase <- function(L,
       L <- updateChangelog(L,changelog = cl,notes = "Updated lipdverse database entry with a changed file.")
     }
   }
+
+
+  if(standardize){
+    TS <- extractTs(L)
+    isValidAll(TS)
+  }
+
   lipdR::writeLipd(L,file.path(dbPath))
 
   print(glue::glue("{res} {L$dataSetName} ({L$datasetId})"))

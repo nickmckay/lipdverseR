@@ -210,9 +210,21 @@ createChangelog <- function(Lold,
       #check TSids are unique
       if(any(duplicated(to$paleoData_variableName))){
         stop("the original dataset has duplicated paleo variableName")
+        ct <- c(ct,"PaleoData table")
+        cv <- c(cv,paste(to$to$paleoData_variableName[duplicated(to$paleoData_variableName)],collapse = ", "))
+
+        changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL,lastVersion = NULL)
+
+        return(changelog)
       }
       if(any(duplicated(tn$paleoData_variableName))){
-        stop("the new dataset has duplicated variableName")
+        stop("the original dataset has duplicated paleo variableName")
+        ct <- c(ct,"PaleoData table")
+        cv <- c(cv,paste(tn$paleoData_variableName[duplicated(tn$paleoData_variableName)],collapse = ", "))
+
+        changelog <- tibble::tibble(type = ct, change = cl, variable = cv,dataSetName = NULL,lastVersion = NULL)
+
+        return(changelog)
       }
 
 
@@ -1026,13 +1038,25 @@ writeVersionToRoot <- function(L){
 #'
 #' @examples
 createMarkdownChangelog <- function(L){
+
+  #Initialize Rmd
+  mdcl <- "---" %>%
+    str_c("pagetitle: changelog",sep = "\n") %>%
+    str_c("output: html_document",sep = "\n") %>%
+    str_c("---",sep = "\n") %>%
+    str_c("\n") %>%
+    str_c("\n\n") %>%
+    str_c("# Version history for {L$datasetId} - {L$dataSetName")
+
+
+
   if(is.null(L$changelog)){
-    mdcl <- glue::glue("# Version history for {L$datasetId} - {L$dataSetName}") %>%
+    mdcl <- mdcl %>%
       str_c("\n\n") %>%
       str_c("No changelog for {L$dataSetName}")
   }else{
     cl <- L$changelog
-    mdcl <- glue::glue("# Version history for {L$datasetId} - {L$dataSetName}") %>%
+    mdcl <- mdcl %>%
       str_c("\n\n")
 
 
@@ -1201,13 +1225,21 @@ createProjectChangelog <- function(Dold,
       # print(cTg$dataSetNameOld[i])
       # print(cTg$dataSetNameNew[i])
 
-      cl <- createChangelog(Dold[[cTg$dataSetNameOld[i]]],Dnew[[cTg$dataSetNameNew[i]]])
-      if(nrow(cl) > 0){
-        bigCl <- dplyr::bind_rows(bigCl,cl)
+      cl <- try(createChangelog(Dold[[cTg$dataSetNameOld[i]]],Dnew[[cTg$dataSetNameNew[i]]]))
+      if(is(cl,"try-error")){
+        changelog <- tibble::tibble(type = "Error", change = cl[1], variable = "Error",dataSetName = NULL,lastVersion = NULL)
         Dchanged[[cTg$dataSetNameNew[i]]] <- updateChangelog(Dnew[[cTg$dataSetNameNew[i]]],
-                                                             changelog = cl,
+                                                             changelog = changelog,
                                                              notes = cTg$notes[i],
                                                              version = paste0(cTg$versionNew[i],".1000"))#force it to have the same version (with a .1000) for this purpose
+      }else{
+        if(nrow(cl) > 0){
+          bigCl <- dplyr::bind_rows(bigCl,cl)
+          Dchanged[[cTg$dataSetNameNew[i]]] <- updateChangelog(Dnew[[cTg$dataSetNameNew[i]]],
+                                                               changelog = cl,
+                                                               notes = cTg$notes[i],
+                                                               version = paste0(cTg$versionNew[i],".1000"))#force it to have the same version (with a .1000) for this purpose
+        }
       }
     }
   }
@@ -1247,10 +1279,9 @@ createProjectChangelog <- function(Dold,
     mdcl <- glue::glue("## **{proj}** version *{projVersNew}* There do not appear to have been any changes to the datasets.")
   }
 
-  write_file(mdcl,file.path(webDirectory,"changelogDetail.Rmd"))
+  write_file(mdcl,file.path(webDirectory,proj,projVersNew,"changelogDetail.Rmd"))
 
-  rmarkdown::render(file.path(webDirectory,"changelogDetail.Rmd"),
-                    output_file = file.path(webDirectory,proj,projVersNew,"changelogDetail.html"))
+  rmarkdown::render(file.path(webDirectory,proj,projVersNew,"changelogDetail.Rmd"),output_file = file.path(webDirectory,proj,projVersNew,"changelogDetail.html"))
 }
 
 

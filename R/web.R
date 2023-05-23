@@ -350,13 +350,16 @@ createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
       sidebar <- str_c(sidebar,"<details>",sep = "\n") %>%
         str_c(str_c("<summary>",bigName,"</summary>"),sep = "\n")
 
+      sidebarBackup <- sidebar
 
       #write each interpretation
       for(p in 1:npub){
         vars <- str_extract(pubNames,str_c("(?<=interpretation",as.numeric(p),"_).*$")) #get all.
         sidebar <- writeCollapsibleChunks(sidebar,ts,name = str_c(bigName,as.character(p)),vars = vars,tsi = cc,forceName = as.character(p),indent = 20)
       }
-      if(is.na(sidebar)){stop("asdas")}
+      if(is.na(sidebar)){
+        stop(glue("Error creating sidebar for: {sidebarTitle}"))
+      }
 
       #close paleo setion
       sidebar <- str_c(sidebar,"</details>",sep = "\n")
@@ -606,6 +609,7 @@ createPaleoDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
 
   #Initialize Rmd
   thisRmd <- "---" %>%
+    str_c("pagetitle: paleoPlots",sep = "\n") %>%
     str_c("output: html_document",sep = "\n") %>%
     str_c("---",sep = "\n") %>%
     str_c("\n")
@@ -725,6 +729,7 @@ createChronDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
 
   #Initialize Rmd
   thisRmd <- "---" %>%
+    str_c("pagetitle: chronPlots",sep = "\n") %>%
     str_c("output: html_document",sep = "\n") %>%
     str_c("---",sep = "\n") %>%
     str_c("\n")

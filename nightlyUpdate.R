@@ -42,7 +42,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 
 
   #compare QC update times
-  versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
+  versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
@@ -108,7 +108,7 @@ tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvP
   googlesheets4::gs4_auth(email = googEmail)
 
   #get last versions udsn
-  versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
+  versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
@@ -155,7 +155,7 @@ lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_
   googlesheets4::gs4_auth(email = googEmail)
 
   #get last versions udsn
-  versionSheet <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId)) %>%
+  versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
     dplyr::filter(project == (!!project)) %>%
     dplyr::arrange(desc(versionCreated))
 
@@ -597,7 +597,7 @@ updateProject <- function(project,
 
 
   #9 update the google version file
-  versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
+  versionDf <- read_sheet_retry(googledrive::as_id(versionMetaId))
   versionDf$versionCreated <- lubridate::ymd_hms(versionDf$versionCreated)
 
 

@@ -180,7 +180,6 @@ writeValidationReportToQCSheet <- function(validationReport,qcId){
       sheetName <- paste0(names(tv)[ncol(tv)],"-invalid")
       tvo <- dplyr::select(tv, -rowNum)
       if(nrow(tvo) == 0){#delete it
-        try(googlesheets4::sheet_delete(ss = qcId,sheet = sheetName),silent = TRUE)
       }else{
         cnames <- names(tvo)
         cnames[ncol(tvo)] <- paste0("invalid_",cnames[ncol(tvo)])
@@ -189,19 +188,94 @@ writeValidationReportToQCSheet <- function(validationReport,qcId){
       }
 
     }else{#for nested data frames
+      toDelete <- TRUE
       for(j in 1:length(tv)){
-        sheetName <-  paste0(names(tv[[j]])[5],"-invalid")
+        sheetName <-  paste0(names(tv[[j]])[5],"-invalid") %>% str_remove_all("[0-9]")
         tvo <-  dplyr::select(tv[[j]],-rowNum)
-        if(ncol(tvo) == 0){#delete it
-          try(googlesheets4::sheet_delete(ss = qcId,sheet = sheetName),silent = TRUE)
-        }else{
+        if(nrow(tvo) > 0){#don't delete it
           cnames <- names(tvo)
-          cnames[ncol(tvo)] <- paste0("invalid_",cnames[ncol(tvo)])
+          cnames[4] <- str_remove_all(pattern = "[0-9]",paste0("invalid_",cnames[4]))
           names(tvo) <- cnames
-          write_sheet_retry(tvo,ss = qcId, sheet = sheetName)
+          tvo$number <- j
+
+          if(toDelete){#if it's the first good one
+            tvbig <- tvo
+          }else{
+            tvbig <- bind_rows(tvbig,tvo)
+          }
+          toDelete <- FALSE
+
+        }
+
+      }
+      if(toDelete){
+        try(googlesheets4::sheet_delete(ss = qcId,sheet = sheetName),silent = TRUE)
+      }else{
+        write_sheet_retry(tvbig,ss = qcId, sheet = sheetName)
+      }
+
+    }
+  }
+}
+
+resolveQcConflict <- function(qc){
+  #which cells have conflicts
+  conf <- purrr::map(qc,\(qc) which(grepl(x = qc,"(((",fixed = TRUE) & grepl(x = qc,")))",fixed = TRUE)))
+count <- 0
+total <- length(unlist(conf))
+if(total == 0){
+  return(qc)
+}
+
+  for(i in 1:length(conf)){
+    thisConf <- conf[[i]]
+    if(length(conf) > 0){
+      for(co in thisConf){
+        count = count +1
+        cat(crayon::red(glue::glue("Conflict {count} of {total}\n\n")))
+
+        cat(crayon::bold(names(qc)[i]))
+        cat("\n\n")
+
+        #parse the three parts
+        ts <- qc[[i]][co]
+        firstTripleOpen <- str_locate(ts,coll("((("))
+        firstTripleClose <- str_locate(ts,coll(")))"))
+        lastTripleSlash <- str_locate_all(ts,coll("///"))
+        lastTripleSlash <- lastTripleSlash[[length(lastTripleSlash)]]
+        lastTripleSlash <- lastTripleSlash[nrow(lastTripleSlash),]
+
+
+        first <- stringr::str_sub(ts,start = firstTripleOpen[2] + 2,firstTripleClose[1] - 2)
+        mid <- stringr::str_sub(ts,firstTripleClose[2] + 2,end = lastTripleSlash[1] - 2)
+        last <- stringr::str_sub(ts,lastTripleSlash[2] + 2)
+
+
+        print(glue("1. Old version: {first}\n\n"))
+        print(glue("2. QC Sheet version: {mid}\n\n"))
+        print(glue("3. LiPD file version: {last}\n\n"))
+        print(glue("4. Don't make any changes\n\n"))
+        print(glue("Or type in your preference\n\n"))
+        cat("\n\n")
+        wg <- askUser("Which option do you prefer?")
+
+        if(wg == 1){
+          qc[[i]][co] <- first
+        }else if(wg == 2){
+          qc[[i]][co] <- mid
+        }else if(wg == 3){
+          qc[[i]][co] <- last
+        }else if(wg == 4){
+          print("skipping...")
+        }else{
+          qc[[i]][co] <- wg
         }
 
       }
     }
   }
+return(qc)
+
 }
+
+

@@ -94,7 +94,7 @@ createNewQCSheet(qcsheet,stringr::str_c(proj,"-lastUpdate"))
 #finally, add project to the versioning sheet
 
 #9 update the google version file
-versionDf <- googlesheets4::read_sheet(googledrive::as_id(versionMetaId))
+versionDf <- read_sheet_retry(googledrive::as_id(versionMetaId))
 versionDf$versionCreated <- lubridate::ymd_hms(versionDf$versionCreated)
 
 
