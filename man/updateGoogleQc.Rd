@@ -9,9 +9,6 @@ updateGoogleQc(params, data)
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
 Update google
 }

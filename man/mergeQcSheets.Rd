@@ -9,9 +9,6 @@ mergeQcSheets(params, data)
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
 Merge sources
 }

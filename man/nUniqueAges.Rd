@@ -9,9 +9,6 @@ nUniqueAges(L, maxAge = 12000, c14names = c("age"))
 \arguments{
 \item{maxAge}{}
 }
-\value{
-
-}
 \description{
 Get the number of unique 14C ages in a Lipd file
 }

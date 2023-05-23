@@ -4,7 +4,11 @@
 \alias{addLipdToDatabase}
 \title{Add or update a LiPD file in the database}
 \usage{
-addLipdToDatabase(L, dbPath = "/Users/nicholas/Dropbox/lipdverse/database/")
+addLipdToDatabase(
+  L,
+  dbPath = "/Users/nicholas/Dropbox/lipdverse/database/",
+  standardize = FALSE
+)
 }
 \arguments{
 \item{dbPath}{local path to the database}

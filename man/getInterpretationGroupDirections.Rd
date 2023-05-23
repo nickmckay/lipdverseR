@@ -6,9 +6,6 @@
 \usage{
 getInterpretationGroupDirections(vec)
 }
-\value{
-
-}
 \description{
 figure out  interpretation group directions
 }

@@ -9,9 +9,6 @@ updateTsFromMergedQc(params, data)
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
 updateTsFromMergedQc
 }

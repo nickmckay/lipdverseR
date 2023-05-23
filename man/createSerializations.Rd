@@ -9,6 +9,7 @@ createSerializations(
   webDirectory,
   project,
   projVersion,
+  remove.ensembles = TRUE,
   matlabUtilitiesPath = "/Volumes/data/GitHub/LiPD-utilities/Matlab",
   matlabPath = "/Applications/MATLAB_R2021b.app/bin/matlab",
   python3Path = "/Users/nicholas/opt/anaconda3/envs/pyleo/bin/python3"
@@ -16,9 +17,6 @@ createSerializations(
 }
 \arguments{
 \item{python3Path}{}
-}
-\value{
-
 }
 \description{
 creates serialization; requires that Matlab and Python be installed, along with lipd utilities for those languages.

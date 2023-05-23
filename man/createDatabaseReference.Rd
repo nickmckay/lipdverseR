@@ -9,9 +9,6 @@ createDatabaseReference(D)
 \arguments{
 \item{D}{}
 }
-\value{
-
-}
 \description{
 create a reference table for the database
 }

@@ -9,9 +9,6 @@ loadInUpdatedData(params)
 \arguments{
 \item{params}{}
 }
-\value{
-
-}
 \description{
 Load in new data
 }

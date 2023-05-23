@@ -9,16 +9,13 @@ createChangelog(
   Lnew,
   good.base = c("archiveType", "createdBy", "dataSetName", "dataSource", "notes",
     "originalDataUrl"),
-  exclude.paleo = c("paleoData_meanValue12k", "paleoData_medianRes12k",
-    "paleoData_tableName", "paleoData_values"),
+  exclude.paleo = c("paleoData_meanValue12k", "paleoData_mostRecentCompilations",
+    "paleoData_medianRes12k", "paleoData_tableName", "paleoData_values"),
   exclude.chron = c("chronData_values")
 )
 }
 \arguments{
 \item{exclude.chron}{}
-}
-\value{
-
 }
 \description{
 Create a changelog by comparing two LiPD files

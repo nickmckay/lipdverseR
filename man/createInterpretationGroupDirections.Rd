@@ -9,9 +9,6 @@ createInterpretationGroupDirections(TS, groupFrom, groupInto)
 \arguments{
 \item{groupInto}{}
 }
-\value{
-
-}
 \description{
 create directions for groups
 }

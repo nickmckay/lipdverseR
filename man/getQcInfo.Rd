@@ -9,9 +9,6 @@ getQcInfo(params, data)
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
 Get QC
 }

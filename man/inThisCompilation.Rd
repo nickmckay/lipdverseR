@@ -9,9 +9,6 @@ inThisCompilation(TS, compName, compVers)
 \arguments{
 \item{compVers}{}
 }
-\value{
-
-}
 \description{
 In this compilation
 }

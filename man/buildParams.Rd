@@ -17,8 +17,10 @@ buildParams(
   ageOrYear = "age",
   recreateDataPages = FALSE,
   restrictWebpagesToCompilation = TRUE,
+  qcStandardizationCheck = TRUE,
   serialize = TRUE,
-  projVersion = NA
+  projVersion = NA,
+  updateLipdverse = TRUE
 )
 }
 \arguments{

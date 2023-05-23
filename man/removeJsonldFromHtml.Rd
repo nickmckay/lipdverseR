@@ -9,9 +9,6 @@ removeJsonldFromHtml(dataSetName, webdir)
 \arguments{
 \item{webdir}{}
 }
-\value{
-
-}
 \description{
 Remove json-ld tage from html
 }

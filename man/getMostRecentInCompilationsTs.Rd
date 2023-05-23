@@ -4,7 +4,11 @@
 \alias{getMostRecentInCompilationsTs}
 \title{Get most recent compilations and versions}
 \usage{
-getMostRecentInCompilationsTs(TS)
+getMostRecentInCompilationsTs(
+  TS,
+  comps.to.include = c("Temp12k", "wNAm", "iso2k", "PalMod", "SISAL-LiPD",
+    "Pages2kTemperature")
+)
 }
 \value{
 a character vector of compilations and versions

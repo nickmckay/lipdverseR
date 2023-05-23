@@ -9,9 +9,6 @@ finalize(params, data)
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
 Finalize
 }

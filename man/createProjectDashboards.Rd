@@ -19,9 +19,6 @@ createProjectDashboards(D, TS, webDirectory, project, version)
 
 \item{currentVersion}{(TRUE or FALSE) copy to to currentVersion folder?}
 }
-\value{
-
-}
 \description{
 Create dahsboards for a project
 }

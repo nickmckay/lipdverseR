@@ -2,16 +2,13 @@
 % Please edit documentation in R/nightlyUpdateDrake.R
 \name{createWebpages}
 \alias{createWebpages}
-\title{Create lipdversePages}
+\title{Create lipdversePages old framework}
 \usage{
 createWebpages(params, data)
 }
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
-Create lipdversePages
+Create lipdversePages old framework
 }

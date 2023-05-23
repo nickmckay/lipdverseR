@@ -9,9 +9,6 @@ flattenAuthors(vec)
 \arguments{
 \item{vec}{}
 }
-\value{
-
-}
 \description{
 Flatten authors list to a string
 }

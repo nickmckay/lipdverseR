@@ -9,9 +9,6 @@ createQcFromFile(params, data)
 \arguments{
 \item{data}{}
 }
-\value{
-
-}
 \description{
 Create QC sheet from data
 }

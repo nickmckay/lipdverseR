@@ -9,9 +9,6 @@ standardizeTsValues(
   renamingDirectoryId = "1b-4arcNxxGsArCM6XfjW6y6yAp85BMlF-Gn8au4Zygg"
 )
 }
-\value{
-
-}
 \description{
 renames keys based on a directory of google spreadsheets
 }

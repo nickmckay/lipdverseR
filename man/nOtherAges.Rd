@@ -9,9 +9,6 @@ nOtherAges(L, maxAge = 12000, c14names = c("age"))
 \arguments{
 \item{maxAge}{}
 }
-\value{
-
-}
 \description{
 Get the number of good 14C ages in a Lipd file
 }
