@@ -1046,14 +1046,14 @@ createMarkdownChangelog <- function(L){
     str_c("---",sep = "\n") %>%
     str_c("\n") %>%
     str_c("\n\n") %>%
-    str_c("# Version history for {L$datasetId} - {L$dataSetName")
+    str_c(glue::glue("# Version history for {L$datasetId} - {L$dataSetName}"))
 
 
 
   if(is.null(L$changelog)){
     mdcl <- mdcl %>%
       str_c("\n\n") %>%
-      str_c("No changelog for {L$dataSetName}")
+      str_c(glue::glue("No changelog for {L$dataSetName}"))
   }else{
     cl <- L$changelog
     mdcl <- mdcl %>%

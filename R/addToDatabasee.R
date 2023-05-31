@@ -36,6 +36,9 @@ addLipdToDatabase <- function(L,
                               standardize = FALSE){
 
 
+  if(currentlyUpdating()){
+    stop("Can't update any files because an update is currently running.\n\n Check https://lipdverse.org/updateStatus.txt for details")
+  }
 
   if(exists("databaseRef",envir = .GlobalEnv)){
     databaseRef <- get("databaseRef",envir = .GlobalEnv)

@@ -128,7 +128,7 @@ createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
   sidebarTitle <- glue::glue("{dsn} - v{vers}")
   dsidstr <- paste("Dataset Id:",dsid)
-  dsPath <- glue("../../{dsid}/{vers_}/")
+  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
   lpdPath <- glue("{dsPath}/{dsn}.lpd")
   lpdPathEns <- glue("{dsPath}/{dsn}-ensemble.lpd")
   jsonPath <- glue("{dsPath}/{dsn}.jsonld")
@@ -142,7 +142,7 @@ createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
   #prep and setup widget
   sidebar <- '<head>\n
 <base target="_PARENT">\n
-<link rel="stylesheet" href="../../../sidebarstyles.css">
+<link rel="stylesheet" href="https://lipdverse.org/sidebarstyles.css">
 </head>\n'
 
 
@@ -789,10 +789,10 @@ createDataWebPage <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
   vers <- sapply(L$changelog,"[[","version") %>% as.numeric_version() %>% max() %>% as.character()
   vers_ <- str_replace_all(vers,"[.]","_")
 
-  dsPath <- glue("../../{dsid}/{vers_}/")
+  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
 
   sidebarUrl <- "sidebar.html"
-  mapUrl <- "../../../lipdverse/current_version/map.html"
+  mapUrl <- "https://lipdverse.org/lipdverse/current_version/map.html"
   paleoUrl <- "paleoPlots.html"
   chronUrl <- "chronPlots.html"
 
@@ -868,7 +868,7 @@ updateDataWebPageForCompilation <- function(L,webdir = "/Volumes/data/Dropbox/li
     stop(glue::glue('It looks like {file.path(webdir,"data",dsid,"index.html")} does not exist. Perhaps you should use createDataWebPage()?'))
   }
 
-  dsPath <- glue("../../{dsid}/{vers_}/")
+  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
 
   sidebarUrl <- "sidebar.html"
   mapUrl <- "../../map.html"
@@ -905,7 +905,7 @@ createProjectDataWebPage <- function(dsid,
 
   vers_ <- str_replace_all(vers,"[.]","_")
 
-  dsPath <- glue("../../data/{dsid}/{vers_}/")
+  dsPath <- glue("https://lipdverse.org/data/{dsid}/{vers_}/")
   projPath <- file.path(webdir,project,projVersion)
 
   sidebarUrl <- file.path(dsPath,"sidebar.html")
@@ -992,7 +992,7 @@ getInventory <- function(lipdDir,googEmail){
   }
   ss <- smatch$id
   #googlesheets4::gs4_auth(email = googEmail)
-  return(googlesheets4::read_sheet(ss = ss,sheet = "inventory"))
+  return(read_sheet_retry(ss = ss,sheet = "inventory"))
 }
 
 #' Update the lipdverse inventory

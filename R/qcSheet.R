@@ -741,32 +741,32 @@ createQCdataFrame <- function(sTS,
     #     minAge <- sapply(allAge,min,na.rm=TRUE)
     #     maxAge <- sapply(allAge,max,na.rm=TRUE)
 
-    #ages per kyr
-    nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
-    if(!is(nUniqueGoodAges,"try-error")){
-      maxHoloAge <- maxAge
-      maxHoloAge[maxAge>12000] <- 12000
-      agesPerKyr <- 1000*nUniqueGoodAges/(maxHoloAge-minAge)
-    }else{
-      agesPerKyr <- matrix(NA,nrow = length(fsTS) )
-    }
-
-    #other ages per kyr
-
-    nUniqueOtherAges <- try(pullTsVariable(fsTS,"nUniqueOtherAges"))
-    if(!is(nUniqueOtherAges,"try-error")){
-      maxHoloAge <- maxAge
-      maxHoloAge[maxAge>12000] <- 12000
-      otherAgesPerKyr <- 1000*nUniqueOtherAges/(maxHoloAge-minAge)
-    }else{
-      otherAgesPerKyr <- matrix(NA,nrow = length(fsTS) )
-    }
+    # #ages per kyr
+    # nUniqueGoodAges <- try(pullTsVariable(fsTS,"nUniqueGoodAges"))
+    # if(!is(nUniqueGoodAges,"try-error")){
+    #   maxHoloAge <- maxAge
+    #   maxHoloAge[maxAge>12000] <- 12000
+    #   agesPerKyr <- 1000*nUniqueGoodAges/(maxHoloAge-minAge)
+    # }else{
+    #   agesPerKyr <- matrix(NA,nrow = length(fsTS) )
+    # }
+    #
+    # #other ages per kyr
+    #
+    # nUniqueOtherAges <- try(pullTsVariable(fsTS,"nUniqueOtherAges"))
+    # if(!is(nUniqueOtherAges,"try-error")){
+    #   maxHoloAge <- maxAge
+    #   maxHoloAge[maxAge>12000] <- 12000
+    #   otherAgesPerKyr <- 1000*nUniqueOtherAges/(maxHoloAge-minAge)
+    # }else{
+    #   otherAgesPerKyr <- matrix(NA,nrow = length(fsTS) )
+    # }
 
 
     fsTS <- pushTsVariable(fsTS,"minYear",minAge,createNew = TRUE)
     fsTS <- pushTsVariable(fsTS,"maxYear",maxAge, createNew = TRUE)
-    fsTS <- pushTsVariable(fsTS,"agesPerKyr",agesPerKyr,createNew = TRUE)
-    fsTS <- pushTsVariable(fsTS,"otherAgesPerKyr",otherAgesPerKyr,createNew = TRUE)
+    # fsTS <- pushTsVariable(fsTS,"agesPerKyr",agesPerKyr,createNew = TRUE)
+    # fsTS <- pushTsVariable(fsTS,"otherAgesPerKyr",otherAgesPerKyr,createNew = TRUE)
 
 
   }else if(ageOrYear=="year"){

@@ -20,12 +20,13 @@ getPastDataframe <- function(filename = "past.json"){
 
 
 getLipdVocab <- function(key,
+                         lipdInfo = NA,
                          PaST =  getPastDataframe()){
 
   #LiPD variable info from QC sheet.
-
-  lipdInfo <- googlesheets4::read_sheet(ss = key$`googlesheets id`[1],col_types = "c")
-
+  if(all(is.na(lipdInfo))){
+    lipdInfo <- read_sheet_retry(ss = key$`googlesheets id`[1],col_types = "c")
+  }
   #if variableName
   if(key$name == "paleoData_variableName"){
     lipdInfo <- filter(lipdInfo,is.na(paleoData_isAssemblage))
@@ -137,12 +138,20 @@ writeVocabMarkdown <- function(voc){
 
 updateVocabWebsites <- function(){
 
-  allKeys <- googlesheets4::read_sheet("16edAnvTQiWSQm49BLYn_TaqzHtKO9awzv5C-CemwyTY")
+  allKeys <- read_sheet_retry("16edAnvTQiWSQm49BLYn_TaqzHtKO9awzv5C-CemwyTY")
+
+  standardTables <- vector(mode = "list",length = nrow(allKeys))
 
   for(k in 1:nrow(allKeys)){
     key <- allKeys[k,]
     PaST <- getPastDataframe()
-    dict <- getLipdVocab(key,PaST = PaST)
+
+    lipdInfo <- read_sheet_retry(ss = key$`googlesheets id`[1],col_types = "c")
+
+    standardTables[[k]] <- lipdInfo
+    names(standardTables)[[k]] <- key$name
+
+    dict <- getLipdVocab(key,lipdInfo,PaST = PaST)
 
     allVar <- map_chr(dict,writeVocabMarkdown)
 
@@ -171,15 +180,23 @@ updateVocabWebsites <- function(){
     page %>% write_file(file = file.path(lipdversedir,"index.Rmd"))
 
   }
+
+  #serialize standard tables and save for upload
+  names(standardTables)
+  saveRDS(standardTables,file = file.path("~/Dropbox/lipdverse/html/lipdverse/standardTables.RDS"))
+
 }
 
 writeValidationReportToQCSheet <- function(validationReport,qcId){
+  toDelete <- FALSE
+
   for(i in 1:length(validationReport)){
     tv <- validationReport[[i]]
     if(is(tv,"data.frame")){
       sheetName <- paste0(names(tv)[ncol(tv)],"-invalid")
       tvo <- dplyr::select(tv, -rowNum)
       if(nrow(tvo) == 0){#delete it
+        toDelete <- TRUE
       }else{
         cnames <- names(tvo)
         cnames[ncol(tvo)] <- paste0("invalid_",cnames[ncol(tvo)])

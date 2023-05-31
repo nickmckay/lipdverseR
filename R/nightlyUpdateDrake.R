@@ -307,6 +307,7 @@ loadInUpdatedData <- function(params){
 
 
   #1. load in (potentially updated) files
+  flagUpdate(project)
   D <- lipdR::readLipd(filesToConsider)
 
 
@@ -431,11 +432,11 @@ getQcInfo <- function(params,data){
 
     #check for year, age, depth fixes
     allInvalid <- allSheetNames[grepl(allSheetNames,pattern = "-invalid")]
+    atsid <- pullTsVariable(TS,"paleoData_TSid")
 
     for(av in allInvalid){
       thisOne <- read_sheet_retry(ss = qcId,sheet = av)
       #check to find TSids not in QC sheet AND in TS
-      atsid <- pullTsVariable(TS,"paleoData_TSid")
       if("number" %in% names(thisOne)){
         #if there's a number, then do all but number one
         tochange <- which(thisOne$number > 1 & thisOne$TSid %in% atsid)
@@ -450,12 +451,17 @@ getQcInfo <- function(params,data){
         vnts <- str_remove(av,"-invalid")
 
         if(!is.null(thisOne$number[tsidi])){#then we need to append the number into the name
-          vnts <- str_replace(vnts,"_",paste0(thisOne$number[tsidi],"_"))
+          vnts <- str_replace(vnts,"_",paste0(thisOne$number[tci],"_"))
         }
 
         if(!is.na(names(TS[[tsidi]][vnts]))){
           print(glue::glue("Changed special column {vnts} ({thisOne$TSid[tci]}) from {TS[[tsidi]][[vnts]]} to {thisOne[[4]][tci]}"))
           TS[[tsidi]][[vnts]] <- thisOne[[4]][tci]
+          if(av == "paleoData_proxy-invalid"){
+            if(is.na(TS[[tsidi]][[vnts]])){#replace these with NULLs
+              TS[[tsidi]][[vnts]] <- NULL
+            }
+          }
         }
 
       }
@@ -1618,6 +1624,7 @@ changeloggingAndUpdating <- function(params,data){
 
   unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
   writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE)
+  unFlagUpdate()
 
 }
 
