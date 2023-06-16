@@ -1601,10 +1601,11 @@ changeloggingAndUpdating <- function(params,data){
     print("failed to write lipdverse versioning - do this manually")
   }
   #update datasetId information
-  updateDatasetIdDereferencer(DF,
-                              compilation = project,
-                              version = projVersion,
-                              dateUpdated = lubridate::today())
+  #Is this needed anymore?
+  # updateDatasetIdDereferencer(DF,
+  #                             compilation = project,
+  #                             version = projVersion,
+  #                             dateUpdated = lubridate::today())
 
   #update vocab
   try(updateVocabWebsites())

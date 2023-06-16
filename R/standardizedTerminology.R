@@ -188,16 +188,20 @@ updateVocabWebsites <- function(){
 }
 
 writeValidationReportToQCSheet <- function(validationReport,qcId){
-  toDelete <- FALSE
+  #delete all invalid names at the start of this process.
+  allNames <- googlesheets4::sheet_names(qcId)
+  allInvalid <- allNames[grepl(allNames,pattern = "-invalid",fixed = TRUE)]
+
+
+  try(googlesheets4::sheet_delete(ss = qcId,sheet = allInvalid),silent = TRUE)
+
 
   for(i in 1:length(validationReport)){
     tv <- validationReport[[i]]
     if(is(tv,"data.frame")){
       sheetName <- paste0(names(tv)[ncol(tv)],"-invalid")
       tvo <- dplyr::select(tv, -rowNum)
-      if(nrow(tvo) == 0){#delete it
-        toDelete <- TRUE
-      }else{
+      if(nrow(tvo) > 0){#write
         cnames <- names(tvo)
         cnames[ncol(tvo)] <- paste0("invalid_",cnames[ncol(tvo)])
         names(tvo) <- cnames
@@ -205,30 +209,26 @@ writeValidationReportToQCSheet <- function(validationReport,qcId){
       }
 
     }else{#for nested data frames
-      toDelete <- TRUE
       for(j in 1:length(tv)){
         sheetName <-  paste0(names(tv[[j]])[5],"-invalid") %>% str_remove_all("[0-9]")
         tvo <-  dplyr::select(tv[[j]],-rowNum)
-        if(nrow(tvo) > 0){#don't delete it
+        if(nrow(tvo) > 0){#write it
           cnames <- names(tvo)
           cnames[4] <- str_remove_all(pattern = "[0-9]",paste0("invalid_",cnames[4]))
           names(tvo) <- cnames
           tvo$number <- j
 
-          if(toDelete){#if it's the first good one
+          if(!exists("tvbig")){#if it's the first good one
             tvbig <- tvo
           }else{
             tvbig <- bind_rows(tvbig,tvo)
           }
-          toDelete <- FALSE
 
         }
 
       }
-      if(toDelete){
-        try(googlesheets4::sheet_delete(ss = qcId,sheet = sheetName),silent = TRUE)
-      }else{
-        write_sheet_retry(tvbig,ss = qcId, sheet = sheetName)
+      if(exists("tvbig")){
+          write_sheet_retry(tvbig,ss = qcId, sheet = sheetName)
       }
 
     }

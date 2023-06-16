@@ -590,15 +590,31 @@ createPaleoDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
   nonnumeric <- which(purrr::map_lgl(ts,~ !is.numeric(.x$paleoData_values)))
 
 
-  if(any(plotOrder %in% xcol)){#then remove those
-    graphOrder = plotOrder[-which(plotOrder %in% xcol)]
-    graphNames = names(outdf)[-which(plotOrder %in% xcol)]
-  }else{
-    graphOrder = plotOrder
-    graphNames = names(outdf)
+  if(length(graphOrder) > 6){#let's try to pick the best ones.
+    thisInterp <- try(pullTsVariable(ts,"interpretation1_variable"),silent = TRUE)
+    if(is(thisInterp,"try-error")){thisInterp <- rep(NA,length(ts))}
+
+    thisProxy <- try(pullTsVariable(ts,"paleoData_proxy"),silent = TRUE)
+    if(is(thisProxy,"try-error")){thisProxy <- rep(NA,length(ts))}
+
+    mostRecentCompilations <- getMostRecentInCompilationsTs(ts)
+
+    primary <- try(as.logical(pullTsVariable(ts,"paleoData_primaryTimeseries"),silent = TRUE))
+    if(is(primary,"try-error")){primary <- rep(NA,length(ts))}
+
+    bestPlots <- ((!is.na(thisInterp) | !is.na(thisProxy) | !is.na(mostRecentCompilations) ) & !map_lgl(primary,isFALSE))
+
+    bestPlotsNoXCol <- bestPlots[-which(plotOrder %in% xcol)]
+
+    # nbp <- length(bestPlots)
+    # if(nbp < 6){
+    #   bestPlots <- c(bestPlots,setdiff(1:12,bestPlots))[1:6]
+    # }
+    graphOrder <- graphOrder[which(bestPlotsNoXCol)]
   }
 
-  if(any(graphOrder == nonnumeric)){
+
+  if(any(graphOrder %in% nonnumeric)){
     gind <- -which(graphOrder == nonnumeric)
     graphOrder <- graphOrder[gind]
     graphNames  <- graphNames[gind]
@@ -624,6 +640,9 @@ createPaleoDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
   thisRmd <- str_c(thisRmd,"PaleoData {.tabset .tabset-fade}",sep = "\n") %>%
     str_c("-----------------------------------------------------------------------",sep = "\n") %>%
     str_c("\n")
+
+
+
 
 
   for(cc in 1:length(graphOrder)){#for each column..

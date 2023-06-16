@@ -52,7 +52,7 @@ Hydro21k <- drake_plan(
                        lastUpdateId = "1uwoNny2tsul94zyD16txceRZLsGo1LEW3-1UcUX0GdY",
                        googEmail = "nick.mckay2@gmail.com",
                        updateWebpages = TRUE,
-                       updateLipdverse = TRUE,
+                       updateLipdverse = FALSE,
                        standardizeTerms = FALSE,
                        serialize = TRUE),
  # updateNeeded = checkIfUpdateNeeded(params),

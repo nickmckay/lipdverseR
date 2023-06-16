@@ -579,6 +579,8 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
   #graph order
   xcol <- which(startsWith(thisVarNames,"age") | startsWith(thisVarNames,"depth") | startsWith(thisVarNames,"year"))
 
+
+
   if(any(plotOrder %in% xcol)){#then remove those
     graphOrder = plotOrder[-which(plotOrder %in% xcol)]
     graphNames = names(outdf)[-which(plotOrder %in% xcol)]
@@ -587,6 +589,30 @@ createDashboardRmd <- function(thisTS,i,project,webDirectory,version,chronTS = N
     graphNames = names(outdf)
     }
 
+
+
+  if(length(graphOrder) > 6){#let's try to pick the best ones.
+    thisInterp <- try(pullTsVariable(thisTS,"interpretation1_variable"),silent = TRUE)
+    if(is(thisInterp,"try-error")){thisInterp <- rep(NA,length(thisTS))}
+
+    thisProxy <- try(pullTsVariable(thisTS,"paleoData_proxy"),silent = TRUE)
+    if(is(thisProxy,"try-error")){thisProxy <- rep(NA,length(thisTS))}
+
+    mostRecentCompilations <- getMostRecentInCompilationsTs(thisTS)
+
+    primary <- try(as.logical(pullTsVariable(thisTS,"paleoData_primaryTimeseries"),silent = TRUE))
+    if(is(primary,"try-error")){primary <- rep(NA,length(thisTS))}
+
+    bestPlots <- ((!is.na(thisInterp) | !is.na(thisProxy) | !is.na(mostRecentCompilations) ) & !map_lgl(primary,isFALSE))
+
+    bestPlotsNoXCol <- bestPlots[-which(plotOrder %in% xcol)]
+
+    # nbp <- length(bestPlots)
+    # if(nbp < 6){
+    #   bestPlots <- c(bestPlots,setdiff(1:12,bestPlots))[1:6]
+    # }
+    graphOrder <- graphOrder[which(bestPlotsNoXCol)]
+  }
 
   for(cc in 1:length(graphOrder)){#for each column..
     #setup a new column in the markdown
