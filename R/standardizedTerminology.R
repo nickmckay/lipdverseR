@@ -189,7 +189,10 @@ updateVocabWebsites <- function(){
 
 writeValidationReportToQCSheet <- function(validationReport,qcId){
   #delete all invalid names at the start of this process.
-  allNames <- googlesheets4::sheet_names(qcId)
+  allNames <- try(googlesheets4::sheet_names(ss = qcId))
+  while(is(allNames,"try-error")){
+    allNames <- try(googlesheets4::sheet_names(ss = qcId))
+  }
   allInvalid <- allNames[grepl(allNames,pattern = "-invalid",fixed = TRUE)]
 
 
@@ -228,7 +231,7 @@ writeValidationReportToQCSheet <- function(validationReport,qcId){
 
       }
       if(exists("tvbig")){
-          write_sheet_retry(tvbig,ss = qcId, sheet = sheetName)
+        write_sheet_retry(tvbig,ss = qcId, sheet = sheetName)
       }
 
     }
@@ -238,11 +241,13 @@ writeValidationReportToQCSheet <- function(validationReport,qcId){
 resolveQcConflict <- function(qc){
   #which cells have conflicts
   conf <- purrr::map(qc,\(qc) which(grepl(x = qc,"(((",fixed = TRUE) & grepl(x = qc,")))",fixed = TRUE)))
-count <- 0
-total <- length(unlist(conf))
-if(total == 0){
-  return(qc)
-}
+  count <- 0
+  total <- length(unlist(conf))
+  if(total == 0){
+    return(qc)
+  }
+
+  all3 <- FALSE
 
   for(i in 1:length(conf)){
     thisConf <- conf[[i]]
@@ -267,14 +272,23 @@ if(total == 0){
         mid <- stringr::str_sub(ts,firstTripleClose[2] + 2,end = lastTripleSlash[1] - 2)
         last <- stringr::str_sub(ts,lastTripleSlash[2] + 2)
 
+        if(all3){
+          wg <- 3
+        }else{
+          print(glue("1. Old version: {first}\n\n"))
+          print(glue("2. QC Sheet version: {mid}\n\n"))
+          print(glue("3. LiPD file version: {last}\n\n"))
+          print(glue("4. Don't make any changes\n\n"))
+          print(glue("Or type in your preference\n\n"))
+          cat("\n\n")
+          wg <- askUser("Which option do you prefer?")
 
-        print(glue("1. Old version: {first}\n\n"))
-        print(glue("2. QC Sheet version: {mid}\n\n"))
-        print(glue("3. LiPD file version: {last}\n\n"))
-        print(glue("4. Don't make any changes\n\n"))
-        print(glue("Or type in your preference\n\n"))
-        cat("\n\n")
-        wg <- askUser("Which option do you prefer?")
+          if(wg == "all3"){
+            all3 <- TRUE
+            wg <- 3
+          }
+
+        }
 
         if(wg == 1){
           qc[[i]][co] <- first
@@ -291,8 +305,85 @@ if(total == 0){
       }
     }
   }
-return(qc)
+  return(qc)
 
 }
 
+#' Check for conflicts in the qc sheet
+#'
+#' @param qc a google qc sheet
+#'
+#' @return qc a (potentially updated) google qc sheet
+#' @export
+checkBaseConflictsQcSheet <- function(qc){
+  #get convoR to figure out
+  convoR <- read_sheet_retry(ss = "1T5RrAtrk3RiWIUSyO0XTAa756k6ljiYjYpvP67Ngl_w")
+
+  #find which names are in the convoR spreadsheet
+  namesToCheck <- dplyr::filter(convoR,qcSheetName %in% names(qc) & sameAcrossDataset) %>% select(qcSheetName) %>% unlist()
+
+  #loop through datasetIds and check
+  udsid <- unique(qc$datasetId)
+
+  #set up all1
+  all1 <- FALSE
+
+
+  for(thisName in namesToCheck){
+    cat(glue::glue("Checking {thisName} for consistency in QC sheet...\r"))
+    for(dsid in udsid){
+      wr <- which(qc$datasetId == dsid)
+      #get 1 datasetName for printing
+      dsn <- unique(qc$dataSetName[wr])[1]
+      uval <- unique(qc[[thisName]][wr])
+      while(length(uval) > 1){
+        cat(crayon::red(glue::glue("Conflict in {thisName} for {dsn} ({dsid})\n\n")))
+
+        uvp <- paste0(seq_along(uval),". ",uval,"\n")
+        for(up in uvp){
+          cat(up)
+        }
+        cat("or type in a different preference:")
+
+        cat("\n")
+
+        if(all1){
+          wg <- 1
+        }else{
+          wg <- askUser("Which option do you prefer?")
+        }
+        wgn <- as.numeric(wg)
+
+        if(is.na(wgn)){#it looks like they entered a new result
+          newEntry <- TRUE
+        }else if(wgn > length(uval)){
+          newEntry <- TRUE
+        }else{
+          newEntry <- FALSE
+        }
+
+        if(newEntry){
+          if(wg == "all1"){#this will enter all choices as 1. Not a bad idea if the sheet is sorted.
+            all1 <- TRUE
+          }else{
+
+
+            ov <- askUser(glue::glue("Overwrite all entries of {thisName} with {wg}?"))
+            if(startsWith(tolower(ov),"y")){
+              qc[[thisName]][wr] <- wg
+            }
+          }
+
+        }else{
+          #overwrite the chosen value in.
+          qc[[thisName]][wr] <- uval[wgn]
+        }
+
+        #update to make sure we're set
+        uval <- unique(qc[[thisName]][wr])
+      }
+    }
+  }
+  return(qc)
+}
 

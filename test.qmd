@@ -1,0 +1,26 @@
+---
+title: "Compilation-Version Bibliography"
+format: 
+  html:
+    page-layout: full
+editor: visual
+execute:
+  echo: false
+bibliography: Compilation-Version.bib
+nocite: '@*'
+---
+
+```{r}
+# load in table metadata
+load("~/Download/table.RData")
+
+```
+
+
+[Download bibtex file of references here](https://lipdverse.org/Compilation/Version/Compilation-Version.bib)
+
+
+```{r}
+knitr::kable(smallTable, format = "pipe",caption = "Datasets included in Compilation-Version")
+```
+

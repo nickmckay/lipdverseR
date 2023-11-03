@@ -52,11 +52,18 @@ addLipdToDatabase <- function(L,
   if(is.null(L$datasetId)){
     print(glue::glue("{L$dataSetName} is missing a datasetId. Generating one now."))
     L$datasetId <- lipdverseR::createDatasetId()
+    createdNewDatasetId <- TRUE
+  }else{
+    createdNewDatasetId <- FALSE
   }
 
 
-
-
+  #make sure that it's not creating a duplicat datasetId randomly somehow
+  if(createdNewDatasetId){
+    while(L$datasetId %in% databaseRef$datasetId){
+      L$datasetId <- lipdverseR::createDatasetId()
+    }
+  }
 
   #see if datasetId exists
   if(L$datasetId %in% databaseRef$datasetId){

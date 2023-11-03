@@ -410,6 +410,9 @@ getQcInfo <- function(params,data){
   #reolve conflicts
   qcB <- resolveQcConflict(qcB)
 
+  #check for base metadata conflicts
+  qcB <- checkBaseConflictsQcSheet(qcB)
+
   #make sure no terms are missing
   if(any(is.na(qcB$TSid))){
     stop("TSids missing from google QC sheet")
@@ -423,12 +426,52 @@ getQcInfo <- function(params,data){
     stop("variableName missing from google QC sheet")
   }
 
+  data$qcB <- qcB
+  return(data)
+}
+
+#' Get QC 2
+#'
+#' @param params
+#' @param data
+#'
+#' @return
+#' @export
+standardizeQCInfo <- function(params,data){
+
+  #assignVariablesFromList(params)
+  for(i in 1:length(params)){
+    assign(names(params)[i],params[[i]])
+  }
+
+  #assignVariablesFromList(data)
+  for(i in 1:length(data)){
+    assign(names(data)[i],data[[i]])
+  }
 
   if(qcStandardizationCheck){
+    #update qcB with invalid csv?
+    if(file.exists(file.path(webDirectory,project,"qcInvalid.csv"))){
+      modtime <- file.info(file.path(webDirectory,project,"qcInvalid.csv"))$mtime
+
+      lf <- askUser(glue::glue("Do you want to load the qc sheet that was written out as part of the invalid terms report? \n
+                         It was last modified on {modtime}\n
+                         If your last update failed on this step, and the time is recent, you probably do. But if this is the first drake run you probably don't"))
+
+      if(startsWith(tolower(lf),"y")){
+        qcB <- readr::read_csv(file.path(webDirectory,project,"qcInvalid.csv"))
+      }
+    }
+
+
+
     #check QCsheet terms are valid
     #replace them with other terms if they're not
 
-    allSheetNames <- googlesheets4::sheet_names(ss = qcId)
+    allSheetNames <- try(googlesheets4::sheet_names(ss = qcId))
+    while(is(allSheetNames,"try-error")){
+      allSheetNames <- try(googlesheets4::sheet_names(ss = qcId))
+    }
 
     #check for year, age, depth fixes
     allInvalid <- allSheetNames[grepl(allSheetNames,pattern = "-invalid")]
@@ -531,8 +574,13 @@ getQcInfo <- function(params,data){
       readr::write_csv(qcB,file = file.path(webDirectory,project,"qcInvalid.csv"))
 
       #upload it to google drive into temporary qcInvalid
-      googledrive::drive_update(media = file.path(webDirectory,project,"qcInvalid.csv"),
-                                file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ"))
+      success <- try(googledrive::drive_update(media = file.path(webDirectory,project,"qcInvalid.csv"),
+                                file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ")))
+
+      while(is(success,"try-error")){
+        success <- try(googledrive::drive_update(media = file.path(webDirectory,project,"qcInvalid.csv"),
+                                             file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ")))
+      }
 
       #copy the qc check to the qcsheet:
       googlesheets4::sheet_delete(ss = qcId,sheet = 1)
@@ -545,7 +593,11 @@ getQcInfo <- function(params,data){
 
       #delete sheets without missing terms
       tokeep <- paste0(names(stando$remainingInvalid),"-invalid")
-      allSheetNames <- googlesheets4::sheet_names(ss = qcId)
+
+      allSheetNames <- try(googlesheets4::sheet_names(ss = qcId))
+      while(is(allSheetNames,"try-error")){
+        allSheetNames <- try(googlesheets4::sheet_names(ss = qcId))
+      }
 
       ivnames <- allSheetNames[str_detect(allSheetNames,pattern = "-invalid")]
       todelete <- setdiff(ivnames,tokeep)
@@ -777,8 +829,8 @@ mergeQcSheets <- function(params,data){
   qc <- dplyr::distinct(qc)
 
 
-  dd <- daff::diff_data(qcA,qc)
-  daff::render_diff(dd,file = file.path(webDirectory,project,projVersion,"qcChanges.html"),view = FALSE)
+  #dd <- daff::diff_data(qcA,qc)
+  #daff::render_diff(dd,file = file.path(webDirectory,project,projVersion,"qcChanges.html"),view = FALSE)
 
   if(any(names(qc) == "inThisCompilation")){
     #check for conflicts in "inThisCompilation"
@@ -834,7 +886,8 @@ updateTsFromMergedQc <- function(params,data){
   rm("data")
 
   #5. Update sTS from merged qc
-  #p <- profvis({nsTS <- updateFromQC(sTS,qc,project,projVersion)})
+  p <- profvis({nsTS <- updateFromQC(sTS,qc,project,projVersion)},interval = 1)
+  #htmlwidgets::saveWidget(p, "~/Download/profile.html")
   nsTS <- updateFromQC(sTS,qc,project,projVersion)
 
   nTS <- combineInterpretationByScope(nsTS)
@@ -873,15 +926,22 @@ updateTsFromMergedQc <- function(params,data){
   }
 
   #5c rebuild database
-  nD <- collapseTs(nTS)
+
+  nD <- try(collapseTs(nTS))
+
+  if(is(nD,"try-error")){
+      eTS <- extractTs(Dloaded)
+      tid <- eTS[[1]]$timeID
+      nTS <- pushTsVariable(nTS,"timeID",matrix(tid,nrow = length(nTS)))
+      nD <- collapseTs(nTS)
+  }
 
   #5d clean D
-  if(standardizeTerms){
-    nDt <- purrr::map(nD,removeEmptyPubs)
-    if(class(nDt) == "list"){
-      nD <- nDt
-    }
+  nDt <- purrr::map(nD,removeEmptyPubs)
+  if(class(nDt) == "list"){
+    nD <- nDt
   }
+
 
   #check to see which datasets are this compilation
   itc <- inThisCompilation(nTS,project,projVersion)
@@ -1107,6 +1167,16 @@ createProjectWebpages <- function(params,data){
   nnTS <- extractTs(nDic)
   createProjectMapHtml(nnTS,project = project,projVersion = projVersion,webdir = webDirectory)
 
+  #create a project bibliography
+  nnTStib <- ts2tibble(nnTS)
+
+  allRefIc <- createBibDfFromLipd(nDic)
+  updateJsonDsidBibReference(allRefIc)
+  updateGoogleReferencesFromLipd(allRefIc)
+  createBibliographicReferenceHtml(DC = nDic,tsC = nnTStib,proj = project,projVersion = projVersion,webdir = webDirectory)
+
+  updateLipdverse <- FALSE
+
   if(updateLipdverse){
     updateQueryCsv(nD)
 
@@ -1248,6 +1318,10 @@ createProjectWebpages <- function(params,data){
     LVTS <- extractTs(LV)
 
     createProjectMapHtml(LVTS,project = "lipdverse",projVersion = "current_version",webdir = webDirectory)
+
+    #create a lipdverse bibliography
+    createBibliographicReferenceHtml(DC = LV,tsC = ts2tibble(LVTS),proj = "lipdverse",projVersion = "current_version",webdir = webDirectory)
+
 
   }
   #create lipdverse querying csv
@@ -1417,17 +1491,6 @@ updateGoogleQc <- function(params,data){
 
   #write_sheet_retry(qc2w,ss = qcId, sheet = 1)
   googledrive::drive_rename(googledrive::as_id(qcId),name = stringr::str_c(project," v.",projVersion," QC sheet"))
-
-
-  #daff::render_diff(diff,file = file.path(webDirectory,project,projVersion,"metadataChangelog.html"),title = paste("Metadata changelog:",project,projVersion),view = FALSE)
-
-  #googledrive::drive_update(file = googledrive::as_id(lastUpdateId),media = file.path(webDirectory,project,"newLastUpdate.csv"))
-
-
-  #newName <- stringr::str_c(project," v.",projVersion," QC sheet")
-
-
-  #googledrive::drive_update(file = googledrive::as_id(qcId),media = file.path(webDirectory,project,"newLastUpdate.csv"),name = newName)
 
 
   #remove unneeded data

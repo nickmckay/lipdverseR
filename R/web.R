@@ -39,6 +39,7 @@ createProjectSidebarHtml <- function(project, vers, webdir = "/Volumes/data/Drop
   sidebarTitle <- glue::glue("{project} - {vers}")
   filePath <- paste0(project,vers)
   zipPath <- paste0(filePath,".zip")
+  bibPath <- "references.html"
   rPath <- paste0(filePath,".RData")
   matlabPath <- paste0(filePath,".mat")
   pythonPath <- paste0(filePath,".pkl")
@@ -55,6 +56,9 @@ createProjectSidebarHtml <- function(project, vers, webdir = "/Volumes/data/Drop
   sidebar <- sidebar %>%
     str_c('<div class="sidenav"> \n') %>%
     str_c(glue('<h2>{sidebarTitle}</h2>',sep = "\n")) %>%
+    str_c(glue('<p style="margin-left: 0px"><a href="{bibPath}">Project bibliography</a>',sep = "\n")) %>%
+    str_c("\n") %>%
+    str_c("            \n") %>%
     str_c(glue('<p style="margin-left: 0px"><a href="{zipPath}">Download all LiPD files</a>',sep = "\n")) %>%
     str_c("\n") %>%
     str_c("            \n") %>%

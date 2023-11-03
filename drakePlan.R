@@ -33,7 +33,8 @@ HoloceneHydroclimate <- drake_plan(
                        serialize = TRUE),
   updateNeeded = checkIfUpdateNeeded(params),
   data1 = loadInUpdatedData(params),
-  data2 = getQcInfo(params,data1),
+  data2a = getQcInfo(params,data1),
+  data2 = standardizeQCInfo(params,data2a),
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
@@ -102,6 +103,7 @@ test <- drake_plan(
                        lastUpdateId = "1RbAs0qRWqvHCUfI7q_Er5UKAxRy-otRh7pdM2PKYCHw",
                        googEmail = "nick.mckay2@gmail.com",
                        recreateDataPages = TRUE,
+                       updateLipdverse = FALSE,
                        updateWebpages = TRUE,
                        serialize = TRUE,
                        standardizeTerms = FALSE),
@@ -232,7 +234,8 @@ pages2k <- drake_plan(
                        standardizeTerms = FALSE),
   updateNeeded = checkIfUpdateNeeded(params),
   data1 = loadInUpdatedData(params),
-  data2 = getQcInfo(params,data1),
+  data2a = getQcInfo(params,data1),
+  data2 = standardizeQCInfo(params,data2a),
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
@@ -252,7 +255,7 @@ while(TRUE){
   }
   print(paste("try",count))
   try(
-    drake::make(Hydro21k,lock_envir = FALSE)
+    drake::make(HoloceneHydroclimate,lock_envir = FALSE)
   )
   prog <- drake::drake_progress()
   if(all(prog$progress == "done")){
@@ -270,6 +273,8 @@ af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/HoloceneAbruptChange/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneAbruptChange
 
+
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/HoloceneHydroclimate/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneHydroclimate
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/RapidArcticWarming/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/RapidArcticWarming

@@ -517,6 +517,7 @@ updateFromQC <- function(sTS,qcs,compilationName = "test",newVersion = "0.0.0"){
 
             #apply to all timeseries from this dataset?
             sname <- stringr::str_split(thisTSnames[j],"_")
+
             #start with false
             apply2all <- FALSE
             if(length(sname[[1]])==1){#then its base
