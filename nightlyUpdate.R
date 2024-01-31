@@ -38,7 +38,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
   # lastMD5 <- directoryMD5(file.path(webDirectory,project,"current_version"))
   #
-  googlesheets4::gs4_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
 
   #compare QC update times
@@ -105,7 +105,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 #' @examples
 tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::gs4_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
   #get last versions udsn
   versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
@@ -152,7 +152,7 @@ tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvP
 #' @examples
 lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::gs4_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
   #get last versions udsn
   versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%

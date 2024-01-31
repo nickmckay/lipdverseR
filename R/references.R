@@ -101,7 +101,7 @@ updateGoogleReferencesFromLipd <- function(allRefTib){
   }
   if(nrow(newRefs) > 0){
     forGoogle <- bind_rows(gs,newRefs)
-    googlesheets4::gs4_auth(email = "nick.mckay2@gmail.com")
+    googlesheets4::gs4_auth(email = "nick.mckay2@gmail.com",cache = ".secret")
     write_sheet_retry(ss = "1MPLsg7OLMMm5L2UV829OaXbK5B9zx6ng9cXWtwTZwgg",data = forGoogle,sheet = "bib database")
     message(glue::glue("{nrow(newRefs)} new citekeys added to bibliographic database."))
     createLipdverseBibtexFromGoogle()
@@ -315,6 +315,9 @@ createBibliographicReferenceHtml <- function(DC,tsC,proj,projVersion,webdir = "/
   #create a bibliography for this project
   thisBib <- createBib(DC)
 
+  if(length(thisBib) == 0){
+    return("No references")
+  }
   #write it to the project folder
   RefManageR::WriteBib(thisBib,file = file.path(projDir,glue::glue("{proj}-{projVersion}.bib")))
 
@@ -416,7 +419,7 @@ updateGoogleReferencesFromCsv <- function(csv){
     stop("there are duplicate citekeys, please fix in the google sheet and try again")
   }
 
-  googlesheets4::gs4_auth(email = "nick.mckay2@gmail.com")
+  googlesheets4::gs4_auth(email = "nick.mckay2@gmail.com",cache = ".secret")
   write_sheet_retry(ss = "1MPLsg7OLMMm5L2UV829OaXbK5B9zx6ng9cXWtwTZwgg",data = new,sheet = "bib database")
   message(glue::glue("{nrow(df)} citekeys have been updated in the bibliographic database."))
   createLipdverseBibtexFromGoogle()

@@ -58,7 +58,8 @@ Hydro21k <- drake_plan(
                        serialize = TRUE),
  # updateNeeded = checkIfUpdateNeeded(params),
   data1 = loadInUpdatedData(params),
-  data2 = getQcInfo(params,data1),
+ data2a = getQcInfo(params,data1),
+ data2 = standardizeQCInfo(params,data2a),
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
@@ -171,6 +172,34 @@ CH2k <- drake_plan(
   changeloggingAndUpdating(params,data8)
 )
 
+GBRCD <- drake_plan(
+  params = buildParams("GBRCD",
+                       "/Volumes/data/Dropbox/lipdverse/GBRCD/",
+                       "/Volumes/data/Dropbox/lipdverse/html/",
+                       qcId = "1_Qfi3JJoWPx_WtJYyjCItk7wG5_ocgkA2w14euEOa1c",
+                       lastUpdateId = "13bky4z8dqv2kfLjiW2mx0ypfdnsAt_LpqS8sRGomX9c",
+                       googEmail = "nick.mckay2@gmail.com",
+                       qcStandardizationCheck = FALSE,
+                       projVersion ="1_0_0",
+                       updateWebpages = TRUE,
+                       ageOrYear = "year",
+                       updateLipdverse = FALSE,
+                       standardizeTerms = FALSE,
+                       serialize = TRUE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2a = getQcInfo(params,data1),
+  data2 = standardizeQCInfo(params,data2a),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
 Temp12k <- drake_plan(
   params = buildParams("Temp12k",
                        "/Volumes/data/Dropbox/lipdverse/database/",
@@ -255,7 +284,7 @@ while(TRUE){
   }
   print(paste("try",count))
   try(
-    drake::make(HoloceneHydroclimate,lock_envir = FALSE)
+    drake::make(Hydro21k,lock_envir = FALSE)
   )
   prog <- drake::drake_progress()
   if(all(prog$progress == "done")){
@@ -273,9 +302,13 @@ af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/HoloceneAbruptChange/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneAbruptChange
 
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/Hydro21k/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/Hydro21k
+
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/HoloceneHydroclimate/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneHydroclimate
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/RapidArcticWarming/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/RapidArcticWarming
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/lipdverse/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/lipdverse
+
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/GBRCD/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/GBRCD

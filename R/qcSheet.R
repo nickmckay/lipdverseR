@@ -910,8 +910,11 @@ inThisCompilation <- function(TS,compName,compVers){
 #' @import readr
 #' @import googledrive
 createNewQCSheet <- function(qcdf,qcName){
+
+
   readr::write_csv(qcdf,path = file.path(tempdir(),"qc.csv"))
   qcdf <- readr::read_csv(file =  file.path(tempdir(),"qc.csv"))
+
   sid <- googlesheets4::sheet_write(data = qcdf)
   googledrive::drive_rename(file = sid,qcName)
   #readr::write_csv(,path = file.path(tempdir(),"qc.csv"))
@@ -923,7 +926,10 @@ createNewQCSheet <- function(qcdf,qcName){
 #' @param qcdf QC Data.frame to upload
 #' @param qcName Name of the qc file
 #' @import readr googlesheets4 lubridate dplyr googledrive
-createNewProject <- function(templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",project = "newProject", versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY"){
+createNewProject <- function(templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",project = "newProject", versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = "nick.mckay2@gmail.com"){
+  #authorize google
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
+  googledrive::drive_auth(email = googEmail,cache = ".secret")
 
   #update the google version file
   versionDf <- read_sheet_retry(googledrive::as_id(versionMetaId))

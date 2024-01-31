@@ -38,7 +38,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
   # lastMD5 <- directoryMD5(file.path(webDirectory,project,"current_version"))
   #
-  googlesheets4::gs4_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
 
   #compare QC update times
@@ -108,7 +108,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
 #' @examples
 tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::gs4_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
   #get last versions udsn
   versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
@@ -155,7 +155,7 @@ tickVersion <- function(project,qcIc,tsIc,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvP
 #' @examples
 lastVersion <- function(project,versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = NULL){
 
-  googlesheets4::gs4_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
   #get last versions udsn
   versionSheet <- read_sheet_retry(googledrive::as_id(versionMetaId)) %>%
@@ -454,15 +454,18 @@ standardizeQCInfo <- function(params,data){
     if(file.exists(file.path(webDirectory,project,"qcInvalid.csv"))){
       modtime <- file.info(file.path(webDirectory,project,"qcInvalid.csv"))$mtime
 
-      lf <- askUser(glue::glue("Do you want to load the qc sheet that was written out as part of the invalid terms report? \n
+      if(difftime(today(),modtime) < 7){
+        lf <- askUser(glue::glue("Do you want to load the qc sheet that was written out as part of the invalid terms report? \n
                          It was last modified on {modtime}\n
                          If your last update failed on this step, and the time is recent, you probably do. But if this is the first drake run you probably don't"))
 
-      if(startsWith(tolower(lf),"y")){
-        qcB <- readr::read_csv(file.path(webDirectory,project,"qcInvalid.csv"))
+        if(startsWith(tolower(lf),"y")){
+          qcB <- readr::read_csv(file.path(webDirectory,project,"qcInvalid.csv"))
+        }
       }
     }
 
+    googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
 
     #check QCsheet terms are valid
@@ -552,7 +555,7 @@ standardizeQCInfo <- function(params,data){
             }
           }
         }else if(length(tivs) == 0){
-         print(glue::glue("No sheet for {tivs} in the qc sheet"))
+          print(glue::glue("No sheet for {tivs} in the qc sheet"))
         }else{
           print(glue::glue("Multiple {tivs} sheets found: {allSheetNames}"))
         }
@@ -564,48 +567,48 @@ standardizeQCInfo <- function(params,data){
 
       if(length(stando$remainingInvalid) > 0){#standardization issues remain
 
-      #write the standardized value back into the qc sheet
-      qcB[is.null(qcB) | qcB == ""] <- NA
+        #write the standardized value back into the qc sheet
+        qcB[is.null(qcB) | qcB == ""] <- NA
 
-      #find differences for log
-      #diff <- daff::diff_data(qcA,qc2w,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
+        #find differences for log
+        #diff <- daff::diff_data(qcA,qc2w,ids = "TSid",ignore_whitespace = TRUE,columns_to_ignore = "link to lipdverse",never_show_order = TRUE)
 
-      qcB[is.na(qcB)] <- ""
-      readr::write_csv(qcB,file = file.path(webDirectory,project,"qcInvalid.csv"))
+        qcB[is.na(qcB)] <- ""
+        readr::write_csv(qcB,file = file.path(webDirectory,project,"qcInvalid.csv"))
 
-      #upload it to google drive into temporary qcInvalid
-      success <- try(googledrive::drive_update(media = file.path(webDirectory,project,"qcInvalid.csv"),
-                                file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ")))
-
-      while(is(success,"try-error")){
+        #upload it to google drive into temporary qcInvalid
         success <- try(googledrive::drive_update(media = file.path(webDirectory,project,"qcInvalid.csv"),
-                                             file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ")))
-      }
+                                                 file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ")))
 
-      #copy the qc check to the qcsheet:
-      googlesheets4::sheet_delete(ss = qcId,sheet = 1)
-      googlesheets4::sheet_copy(from_ss = "1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ", from_sheet = 1,to_ss = qcId, to_sheet = "QC",.before = "datasetsInCompilation")
+        while(is(success,"try-error")){
+          success <- try(googledrive::drive_update(media = file.path(webDirectory,project,"qcInvalid.csv"),
+                                                   file = googledrive::as_id("1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ")))
+        }
 
-      #write_sheet_retry(qc2w,ss = qcId, sheet = 1)
-      googledrive::drive_rename(googledrive::as_id(qcId),name = stringr::str_c(project," v. QC sheet - INVALID TERMS!"))
-      #two write a validation report
-      writeValidationReportToQCSheet(stando$remainingInvalid,qcId)
+        #copy the qc check to the qcsheet:
+        googlesheets4::sheet_delete(ss = qcId,sheet = 1)
+        googlesheets4::sheet_copy(from_ss = "1valJY2eqpUT1fsfRggLmPpwh32-HMb9ZO5J5LvZERLQ", from_sheet = 1,to_ss = qcId, to_sheet = "QC",.before = "datasetsInCompilation")
 
-      #delete sheets without missing terms
-      tokeep <- paste0(names(stando$remainingInvalid),"-invalid")
+        #write_sheet_retry(qc2w,ss = qcId, sheet = 1)
+        googledrive::drive_rename(googledrive::as_id(qcId),name = stringr::str_c(project," v. QC sheet - INVALID TERMS!"))
+        #two write a validation report
+        writeValidationReportToQCSheet(stando$remainingInvalid,qcId)
 
-      allSheetNames <- try(googlesheets4::sheet_names(ss = qcId))
-      while(is(allSheetNames,"try-error")){
+        #delete sheets without missing terms
+        tokeep <- paste0(names(stando$remainingInvalid),"-invalid")
+
         allSheetNames <- try(googlesheets4::sheet_names(ss = qcId))
-      }
+        while(is(allSheetNames,"try-error")){
+          allSheetNames <- try(googlesheets4::sheet_names(ss = qcId))
+        }
 
-      ivnames <- allSheetNames[str_detect(allSheetNames,pattern = "-invalid")]
-      todelete <- setdiff(ivnames,tokeep)
-      try(googlesheets4::sheet_delete(ss = qcId,sheet = todelete),silent = TRUE)
+        ivnames <- allSheetNames[str_detect(allSheetNames,pattern = "-invalid")]
+        todelete <- setdiff(ivnames,tokeep)
+        try(googlesheets4::sheet_delete(ss = qcId,sheet = todelete),silent = TRUE)
 
 
-      #throw an error
-      stop("There are invalid terms in the QC sheet. Check the validation report")
+        #throw an error
+        stop("There are invalid terms in the QC sheet. Check the validation report")
       }
     }
 
@@ -712,6 +715,11 @@ createQcFromFile <- function(params,data){
     assign(names(data)[i],data[[i]])
   }
 
+
+  if(!exists("sTS")){
+    sTS <- splitInterpretationByScope(TS)
+  }
+
   #2. Create a new qc sheet from files
   qcC <- createQCdataFrame(sTS,templateId = qcId,ageOrYear = ageOrYear,compilationName = project,compVersion = lastProjVersion)
   readr::write_csv(qcC,path = file.path(webDirectory,project,projVersion,"qcTs.csv"))
@@ -760,6 +768,8 @@ mergeQcSheets <- function(params,data){
 
   qcB <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcGoog.csv"),guess_max = Inf) %>%
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
+
+
   qcC <- readr::read_csv(file.path(webDirectory,project,projVersion,"qcTs.csv"),guess_max = Inf) %>%
     purrr::map_df(lipdverseR::replaceSpecialCharacters,rosetta)
 
@@ -809,6 +819,16 @@ mergeQcSheets <- function(params,data){
   qcC[is.null(qcC) | qcC == ""] <- NA
 
   #prep inThisCompilation
+  if(!"inThisCompilation" %in% names(qcA)){
+    qcA$inThisCompilation <- FALSE
+  }
+  if(!"inThisCompilation" %in% names(qcB)){
+    qcB$inThisCompilation <- FALSE
+  }
+  if(!"inThisCompilation" %in% names(qcC)){
+    qcC$inThisCompilation <- FALSE
+  }
+
   qcA$inThisCompilation[is.na(qcA$inThisCompilation)] <- FALSE
   qcB$inThisCompilation[is.na(qcB$inThisCompilation)] <- FALSE
   qcC$inThisCompilation[is.na(qcC$inThisCompilation)] <- FALSE
@@ -886,20 +906,21 @@ updateTsFromMergedQc <- function(params,data){
   rm("data")
 
   #5. Update sTS from merged qc
-  p <- profvis({nsTS <- updateFromQC(sTS,qc,project,projVersion)},interval = 1)
+  #p <- profvis({nsTS <- updateFromQC(sTS,qc,project,projVersion)},interval = 1)
   #htmlwidgets::saveWidget(p, "~/Download/profile.html")
   nsTS <- updateFromQC(sTS,qc,project,projVersion)
 
   nTS <- combineInterpretationByScope(nsTS)
 
 
-  #check for standardized terms
-  validationReport <- lipdR:::isValidAll(nTS,report = TRUE)
+  if(qcStandardizationCheck){
+    #check for standardized terms
+    validationReport <- lipdR:::isValidAll(nTS,report = TRUE)
 
-  #write validation report to QC sheet
+    #write validation report to QC sheet
 
-  writeValidationReportToQCSheet(validationReport,qcId)
-
+    writeValidationReportToQCSheet(validationReport,qcId)
+  }
 
   if(standardizeTerms){#To do: #make this its own function
     #proxy lumps
@@ -930,10 +951,10 @@ updateTsFromMergedQc <- function(params,data){
   nD <- try(collapseTs(nTS))
 
   if(is(nD,"try-error")){
-      eTS <- extractTs(Dloaded)
-      tid <- eTS[[1]]$timeID
-      nTS <- pushTsVariable(nTS,"timeID",matrix(tid,nrow = length(nTS)))
-      nD <- collapseTs(nTS)
+    eTS <- extractTs(Dloaded)
+    tid <- eTS[[1]]$timeID
+    nTS <- pushTsVariable(nTS,"timeID",matrix(tid,nrow = length(nTS)))
+    nD <- collapseTs(nTS)
   }
 
   #5d clean D
@@ -984,7 +1005,7 @@ updateTsFromMergedQc <- function(params,data){
 
   dsidKey <- dplyr::left_join(dsidsNew,dsidsOriginal,by = "datasetId")
 
-print("Updating changelogs....")
+  print("Updating changelogs....")
   #loop through DSid and create changelog (this is for files, not for the project)
   for(dfi in 1:nrow(dsidKey)){
     newName <- dsidKey$dataSetNameNew[dfi]
@@ -1147,7 +1168,16 @@ createProjectWebpages <- function(params,data){
   createProjectOverviewPage("lipdverse", "current_version",webDirectory)
 
   #get only those in the compilation
+  firstRun <- TRUE
+  if(firstRun){
+    dsnInComp <- names(nD)
+    nicdi <- c()
+
+  }
+
   nDic <- nD[unique(dsnInComp)] #the unique shouldn't be necessary here, but also shouldn't hurt since it was uniqued earlier
+
+
 
   tcdf <- data.frame(dsid = map_chr(nDic,"datasetId"),
                      dsn = map_chr(nDic,"dataSetName"),
@@ -1175,7 +1205,7 @@ createProjectWebpages <- function(params,data){
   updateGoogleReferencesFromLipd(allRefIc)
   createBibliographicReferenceHtml(DC = nDic,tsC = nnTStib,proj = project,projVersion = projVersion,webdir = webDirectory)
 
-  updateLipdverse <- FALSE
+ # updateLipdverse <- FALSE
 
   if(updateLipdverse){
     updateQueryCsv(nD)
@@ -1351,8 +1381,10 @@ createProjectWebpages <- function(params,data){
 
   TSF <- extractTs(DF)
   #get most recent in compilations
-  mics <- getMostRecentInCompilationsTs(TSF)
-  TSF <- pushTsVariable(TSF,variable = "paleoData_mostRecentCompilations",vec = mics,createNew = TRUE)
+  if(!firstRun){
+    mics <- getMostRecentInCompilationsTs(TSF)
+    TSF <- pushTsVariable(TSF,variable = "paleoData_mostRecentCompilations",vec = mics,createNew = TRUE)
+  }
   sTSF <- splitInterpretationByScope(TSF)
   qcF <- createQCdataFrame(sTSF,templateId = qcId,ageOrYear = ageOrYear,compilationName = project,compVersion = projVersion)
 
@@ -1477,6 +1509,7 @@ updateGoogleQc <- function(params,data){
   updateDatasetCompilationQc(DF,project,projVersion,qcId)
 
   googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
+  googledrive::drive_auth(email = googEmail,cache = ".secret")
 
   #write the new qcsheet to file
   readr::write_csv(qc2w,path = file.path(webDirectory,project,"newLastUpdate.csv"))
@@ -1633,7 +1666,11 @@ changeloggingAndUpdating <- function(params,data){
   if(!is(lastSerial,"try-error")){
     Dpo <- D
   }else{#try to load from lipd
+    if(lastVersionNumber == "NA_NA_NA"){
+      Dpo <- list()
+    }else{
     Dpo <- readLipd(file.path(webDirectory,project,lastVersionNumber))
+    }
   }
 
 

@@ -581,6 +581,11 @@ createPaleoDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
 
   readr::write_csv(outdf,file.path(webdir,"data",dsid,vers_,paste0(dsn,".csv")))
 
+  #write timeseries json files
+
+  write_json_timeseries_files(L,webdir)
+
+
   if(any(plotOrder %in% xcol)){#then remove those
     graphOrder = plotOrder[-which(plotOrder %in% xcol)]
     graphNames = names(outdf)[-which(plotOrder %in% xcol)]
@@ -1014,7 +1019,8 @@ getInventory <- function(lipdDir,googEmail){
     }
   }
   ss <- smatch$id
-  #googlesheets4::gs4_auth(email = googEmail)
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
+
   return(read_sheet_retry(ss = ss,sheet = "inventory"))
 }
 
@@ -1117,5 +1123,68 @@ createProjectOverview <- function(D,TS,webDirectory,project,version){
 }
 
 
+write_json_timeseries_files <- function(L,webdir){
+  ts <- as.lipdTsTibble(L)
+
+  #for each paleo measurement table
+  mts <- unique(ts$tableNumber)
+  for(m in mts){
+    tmt <- dplyr::filter(ts,tableNumber == m)
+
+    #find primary age column
+    ac <- dplyr::filter(tmt,paleoData_primaryAgeColumn)
+
+    if(nrow(ac) >= 1){
+      ac_data <- ac$paleoData_values[[1]]
+    }else{
+      ac <- dplyr::filter(tmt,tolower(paleoData_variableName) == "age")
+      if(nrow(ac) >= 1){
+        ac_data <- ac$paleoData_values[[1]]
+      }else{
+        ac <- dplyr::filter(tmt,tolower(paleoData_variableName) == "year")
+
+        if(nrow(ac) >= 1){
+          ac_data <- ac$paleoData_values[[1]]
+        }else{
+          ac_data <- matrix(NA,nrow = length(tmt$paleoData_values[[1]]))
+          ac_name <- "none"
+          ac_units <- "none"
+          ac_tsid <- "none"
+        }
+      }
+
+    }
+
+    ac_name <- ac$paleoData_variableName[[1]]
+    ac_units <- ac$paleoData_units[[1]]
+    ac_tsid <- ac$paleoData_TSid[[1]]
+
+    #now get data for each TSid
+    for(i in 1:nrow(tmt)){
+      pc_name <- tmt$paleoData_variableName[[i]]
+      pc_units <- tmt$paleoData_units[[i]]
+      pc_tsid <- tmt$paleoData_TSid[[i]]
+      pc_data <- tmt$paleoData_values[[i]]
+
+      #create list for json-ld
+      J <- list(time = list(
+        variableName = ac_name,
+        units = ac_units,
+        TSid = ac_tsid,
+        values = ac_data
+      ),
+      data = list(
+        variableName = pc_name,
+        units = pc_units,
+        TSid = pc_tsid,
+        values = pc_data
+      ))
+
+      json <- jsonlite::toJSON(J,pretty=TRUE, auto_unbox = TRUE)
+      write(json, file=file.path(webdir,"data",L$datasetId,stringr::str_replace_all(lipdR::getVersion(L),"\\.","_"),paste0(pc_tsid,".json")))
+
+    }
+  }
+}
 
 

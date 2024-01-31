@@ -25,7 +25,8 @@ updateDatasetCompilationQc <- function(D,
 
 
   #compare with existing sheet, make sure datasetIds online are included
-
+  googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
+  googledrive::drive_auth(email = googEmail,cache = ".secret")
   googDsComp <- read_sheet_retry(ss = qcSheetId, sheet = "datasetsInCompilation",col_types = "c")
 
   missing <- dplyr::filter(googDsComp, ! dsid %in% dscomp$dsid)
