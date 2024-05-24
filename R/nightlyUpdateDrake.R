@@ -261,7 +261,7 @@ loadInUpdatedData <- function(params){
   }
 
   #if looking at full database:
-  if(lipdDir == "/Volumes/data/Dropbox/lipdverse/database"){
+  if(lipdDir == "/Volumes/data/Dropbox/lipdverse/database" | lipdDir == "/Volumes/data/Dropbox/lipdverse/database/"){
     #getDatasetInCompilationFromQC()
 
     #0. Figure out which datasets to load based on QC sheet.
@@ -354,6 +354,14 @@ loadInUpdatedData <- function(params){
 
   #check for TSid
   TS <- lipdR::extractTs(D)
+
+  #check for numeric age
+  isNumAge <- purrr::map_lgl(TS,\(x) all(is.numeric(x$age)) |  all(is.numeric(x$year)))
+
+    if(any(!isNumAge)){
+    print(unique(unlist(purrr::map_chr(TS[!isNumAge],"dataSetName"))))
+    stop("these datasets have non numeric ages")
+  }
 
   #create grouping terms for later standardization
 
@@ -1048,6 +1056,8 @@ createDataPages <- function(params,data){
     assign(names(data)[i],data[[i]])
   }
 
+  nD <- map(nD,assignPrimaryTimeColumns)
+
   #re extract nTS
   nTS <- extractTs(nD)
 
@@ -1666,7 +1676,7 @@ changeloggingAndUpdating <- function(params,data){
   if(!is(lastSerial,"try-error")){
     Dpo <- D
   }else{#try to load from lipd
-    if(lastVersionNumber == "NA_NA_NA"){
+    if(!isDirectory(file.path(webDirectory,project,lastVersionNumber))){
       Dpo <- list()
     }else{
     Dpo <- readLipd(file.path(webDirectory,project,lastVersionNumber))

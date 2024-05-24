@@ -13,7 +13,7 @@
 #' @examples
 write_sheet_retry <- function(data,ss = NULL,sheet = NULL,ntries = 50,timeout = NA){
   if(is.na(timeout)){
-    timeout <- max(c(object.size(data)/1e6,10))
+    timeout <- max(c(object.size(data)/1e6,20))
   }
 
   tries <- 0

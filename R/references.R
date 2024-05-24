@@ -14,10 +14,10 @@ goodEntry <- function(entry){
 
   }
   if(is.character(entry)){
-      if(grepl("^\\s*$",entry)){
-        good <- FALSE
-        return(good)
-      }
+    if(grepl("^\\s*$",entry)){
+      good <- FALSE
+      return(good)
+    }
   }
   return(good)
 }
@@ -28,39 +28,63 @@ createBibtexEntry <- function(pub){
 
 
   if(!is(bibEntry,"BibEntry") | length(bibEntry) == 0){
-      pub$author <- formatAuthorForBibtex(pub)
+    foundOne <- FALSE
+    addBib <- RefManageR::ReadBib("/Users/nicholas/Dropbox/lipdverse/html/lipdverse/additionalLipdverse.bib")
 
-
-    pubdf <- as.data.frame(pub)
-    if(!"journal" %in% names(pubdf)){
-      pubdf$journal <- "unknown"
+    #first check for a citekey
+    if(!is.null(pub$citekey)){
+      if(pub$citekey %in% names(addBib)){
+        bibEntry <- addBib[pub$citekey]
+        foundOne <- TRUE
+      }
     }
 
-    if(!"bibtype" %in% names(pubdf)){
-      if(!"type" %in% names(pubdf)){
-      pubdf$bibtype <- "Article"
-      }else{
-        if(!grepl(pubdf$type[1],pattern = "article",ignore.case = TRUE)){
-          pubdf$bibtype <- "misc"
-        }else{
-          pubdf$bibtype <- "Article"
+    if(!foundOne){
+      if(!is.null(pub$citeKey)){
+        if(pub$citeKey %in% names(addBib)){
+          bibEntry <- addBib[pub$citeKey]
+          foundOne <- TRUE
         }
       }
     }
 
-    if(!goodEntry(pubdf$author)){
-      pubdf$author <- "Missing Author"
-    }
+    if(!foundOne){
+      #ok, couldn't find one in the additional references, try to create one from the bib
 
-    if(!goodEntry(pubdf$title)){
-      pubdf$title <- "Missing Title"
-    }
+      pub$author <- formatAuthorForBibtex(pub)
 
-    if(!goodEntry(pubdf$year)){
-      pubdf$year <- "Missing Year"
-    }
 
-    bibEntry <- RefManageR::as.BibEntry(pubdf)
+      pubdf <- as.data.frame(pub)
+      if(!"journal" %in% names(pubdf)){
+        pubdf$journal <- "unknown"
+      }
+
+      if(!"bibtype" %in% names(pubdf)){
+        if(!"type" %in% names(pubdf)){
+          pubdf$bibtype <- "Article"
+        }else{
+          if(!grepl(pubdf$type[1],pattern = "article",ignore.case = TRUE)){
+            pubdf$bibtype <- "misc"
+          }else{
+            pubdf$bibtype <- "Article"
+          }
+        }
+      }
+
+      if(!goodEntry(pubdf$author)){
+        pubdf$author <- "Missing Author"
+      }
+
+      if(!goodEntry(pubdf$title)){
+        pubdf$title <- "Missing Title"
+      }
+
+      if(!goodEntry(pubdf$year)){
+        pubdf$year <- "Missing Year"
+      }
+
+      bibEntry <- RefManageR::as.BibEntry(pubdf)
+    }
   }
 
   #update the bib key
@@ -133,14 +157,24 @@ createLipdverseBibtexFromGoogle <- function(path = "~/Dropbox/lipdverse/html/lip
 }
 
 createBibDfFromLipd <- function(D){
+  if("paleoData" %in% names(D)){#then it's just one
+    giant <- getDatasetBibtex(D)
+    names(giant) <- D$dataSetName
+    allRefTib <- as.data.frame(giant[[1]][1])
+    allRefTib$dataSetName <- D$dataSetName
 
-  giant <- purrr::map(D,getDatasetBibtex,.progress = TRUE)
+    allDsn <-  D$dataSetName
+    allDsid <- D$datasetId
+  }else{
+    giant <- purrr::map(D,getDatasetBibtex,.progress = TRUE)
+
 
   allRefTib <- as.data.frame(giant[[1]][1])
   allRefTib$dataSetName <- names(giant)[1]
 
   allDsn <- map_chr(D,"dataSetName")
   allDsid <- map_chr(D,"datasetId")
+  }
 
   for(i in 1:length(giant)){
     cat(glue("{round(100*i/length(giant))}%\r"))
@@ -222,8 +256,8 @@ getLipdverseBib <- function(get.new = FALSE){
 }
 
 getJsonBib <- function(){
-    json <- jsonlite::read_json("https://lipdverse.org/lipdverse/bibDsid.json")
-    return(json)
+  json <- jsonlite::read_json("https://lipdverse.org/lipdverse/bibDsid.json")
+  return(json)
 }
 
 #' Create a RefManageR Bibentry for all the references in a multiLipd object
@@ -319,6 +353,9 @@ createBibliographicReferenceHtml <- function(DC,tsC,proj,projVersion,webdir = "/
     return("No references")
   }
   #write it to the project folder
+  if(!dir.exists(projDir)){
+    dir.create(projDir)
+  }
   RefManageR::WriteBib(thisBib,file = file.path(projDir,glue::glue("{proj}-{projVersion}.bib")))
 
   #check for datasetVersion

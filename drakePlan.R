@@ -176,11 +176,10 @@ GBRCD <- drake_plan(
   params = buildParams("GBRCD",
                        "/Volumes/data/Dropbox/lipdverse/GBRCD/",
                        "/Volumes/data/Dropbox/lipdverse/html/",
-                       qcId = "1_Qfi3JJoWPx_WtJYyjCItk7wG5_ocgkA2w14euEOa1c",
-                       lastUpdateId = "13bky4z8dqv2kfLjiW2mx0ypfdnsAt_LpqS8sRGomX9c",
+                       qcId = "1TRdVzs-ZA0betJ3GauiHHiCf3liZsy-S2oBqxh8d7PE",
+                       lastUpdateId = "1xIRyBKa9NTfFxkSCuedQPGKwZotHUIIV_PbVey1uLTw",
                        googEmail = "nick.mckay2@gmail.com",
                        qcStandardizationCheck = FALSE,
-                       projVersion ="1_0_0",
                        updateWebpages = TRUE,
                        ageOrYear = "year",
                        updateLipdverse = FALSE,
@@ -214,6 +213,32 @@ Temp12k <- drake_plan(
   updateNeeded = checkIfUpdateNeeded(params),
   data1 = loadInUpdatedData(params),
   data2 = getQcInfo(params,data1),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
+Temp24k <- drake_plan(
+  params = buildParams("Temp24k",
+                       "/Volumes/data/Dropbox/lipdverse/database/",
+                       "/Volumes/data/Dropbox/lipdverse/html/",
+                       qcId = "17XaSH1MNCtBI6ftEnTOHgy9C6mtXvYpR7JCNUNT-vI8",
+                       lastUpdateId = "1BHf1RNwjFkDCs57CxMEbbg3zWmk15Od7HL5wi3FbkK8",
+                       googEmail = "nick.mckay2@gmail.com",
+                       qcStandardizationCheck = FALSE,
+                       updateWebpages = FALSE,
+                       updateLipdverse = FALSE,
+                       standardizeTerms = FALSE,
+                       serialize = TRUE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2a = getQcInfo(params,data1),
+  data2 = standardizeQCInfo(params,data2a),
   data3 = createQcFromFile(params,data2),
   data4 = mergeQcSheets(params,data3),
   data5 = updateTsFromMergedQc(params,data4),
@@ -284,7 +309,7 @@ while(TRUE){
   }
   print(paste("try",count))
   try(
-    drake::make(Hydro21k,lock_envir = FALSE)
+    drake::make(Temp24k,lock_envir = FALSE)
   )
   prog <- drake::drake_progress()
   if(all(prog$progress == "done")){
@@ -304,6 +329,7 @@ af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/Hydro21k/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/Hydro21k
 
+#rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/Temp24k/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/Temp24k
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/HoloceneHydroclimate/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneHydroclimate
 

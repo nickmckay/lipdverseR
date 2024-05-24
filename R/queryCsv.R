@@ -74,6 +74,12 @@ createQueryCsv <- function(D){
   mric <- getMostRecentInCompilationsTs(TS)
   tibdg <- ts2tibble(TS)
   tibdg$paleoData_mostRecentCompilations <- mric
+
+
+
+  dvlu <- data.frame(dataSetName = purrr::map_chr(D,pluck,"dataSetName"),
+                     datasetVersion = purrr::map_chr(D,getVersion))
+
   #calculate some derived metadata
   #minAge
   #maxAge
@@ -145,14 +151,21 @@ createQueryCsv <- function(D){
   tibdg$interp_Details <- purrr::map_chr(step2,function(x) paste0(unlist(x[!is.na(x)]), collapse = '|'))
 
 
+
+
   keeps <- c("paleoData_TSid","archiveType", "paleoData_variableName", "paleoData_units","paleoData_proxy",
              "geo_latitude", "geo_longitude","geo_elevation", "minAge", "maxAge",
-             "medianResolution", "auth", "datasetId", "dataSetName", "country",
+             "medianResolution", "auth", "datasetId", "dataSetName","country",
              "continent", "interp_Vars", "interp_Details",
-             "paleoData_mostRecentCompilations", "interpretation1_seasonality")
+             "paleoData_mostRecentCompilations", "interpretation1_seasonality","paleoData_hasTimeTsid")
+
+
+  keeps <- union(keeps,names(tibdg)) #ignore any that aren't in there
+
 
   tibdg <- dplyr::select(tibdg,!!keeps)
 
+  tibdg <- dplyr::left_join(tibdg,dvlu,by = "dataSetName")
 
 
   return(tibble::as_tibble(tibdg))

@@ -922,9 +922,13 @@ createNewQCSheet <- function(qcdf,qcName){
 }
 
 #' Create the files for a new project
+#'
+#' @param templateID
+#' @param project
+#' @param versionMetaId
+#' @param googEmail
+#'
 #' @export
-#' @param qcdf QC Data.frame to upload
-#' @param qcName Name of the qc file
 #' @import readr googlesheets4 lubridate dplyr googledrive
 createNewProject <- function(templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",project = "newProject", versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",googEmail = "nick.mckay2@gmail.com"){
   #authorize google
@@ -965,6 +969,10 @@ createNewProject <- function(templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0k
   template[] <- NA
 
   newQc <- createNewQCSheet(template,qcName = project)
+  googlesheets4::sheet_rename(ss = newQc$id,sheet = 1,new_name = "QC")
+  dsinQc <- data.frame(dsn = "",	dsid = "", 	inComp = "",	instructions = "Any datasets marked as FALSE will not be considered for the update, NA or TRUE will be considered.")
+  googlesheets4::sheet_write(dsinQc,ss = newQc$id,sheet = "datasetsInCompilation")
+
   newLastUpdate <- createNewQCSheet(template,qcName = paste(project,"last update"))
 
 
