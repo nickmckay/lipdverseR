@@ -241,9 +241,9 @@ createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
 
   ############WRITE PUB###############
   #large pub section
-  pubNames <- allNames[grep("pub*", allNames)]
+  pubNames <- allNames[grep("^pub*", allNames)]
   if(length(pubNames)>1){
-    npub <- max(as.numeric(str_extract_all(pubNames,pattern = "[0-9]")))
+    npub <- max(as.numeric(str_extract_all(pubNames,pattern = "[0-9]")),na.rm = TRUE)
   }else{
     npub <- 0
   }
@@ -608,7 +608,7 @@ createPaleoDataPlotHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/
 
     mostRecentCompilations <- getMostRecentInCompilationsTs(ts)
 
-    primary <- try(as.logical(pullTsVariable(ts,"paleoData_primaryTimeseries"),silent = TRUE))
+    primary <- try(as.logical(pullTsVariable(ts,"paleoData_primaryTimeseries")),silent = TRUE)
     if(is(primary,"try-error")){primary <- rep(NA,length(ts))}
 
     bestPlots <- ((!is.na(thisInterp) | !is.na(thisProxy) | !is.na(mostRecentCompilations) ) & !map_lgl(primary,isFALSE))

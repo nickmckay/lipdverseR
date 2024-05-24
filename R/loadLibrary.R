@@ -15,7 +15,9 @@ loadLipdverseDatabase <- function(path = "~/Dropbox/lipdverse/database/"){
     message("Loading stored serialized version of database")
     D <- readRDS(rds)
   }else{
-    message("Cannot find stored serialized version of database, loading from files.")
+    message("Cannot find stored serialized version of database, removeing old RDS files, and loading from files.")
+    toDelete <- list.files(path,pattern = ".RDS",full.names = TRUE)
+    unlink(x = toDelete)
     D <- lipdR::readLipd(path)
     saveRDS(D,file = rds)
   }
