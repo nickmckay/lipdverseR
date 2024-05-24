@@ -434,17 +434,17 @@ createChangelog <- function(Lold,
 
   # Go through chronData ----------------------------------------------------
   totest <- Lold %>%
-    extractTs(mode = "chron")
+    extractTs(mode = "chron",whichtables = "meas")
 
   if(hasChron & length(totest) > 0){# only check for new columns if there was an old chron.
     #get tibbles
     to <- Lold %>%
-      extractTs(mode = "chron") %>%
+      extractTs(mode = "chron",whichtables = "meas") %>%
       ts2tibble() %>%
       dplyr::arrange(chronData_TSid)
 
     tn <- Lnew %>%
-      extractTs(mode = "chron") %>%
+      extractTs(mode = "chron",whichtables = "meas") %>%
       ts2tibble() %>%
       dplyr::arrange(chronData_TSid)
 
