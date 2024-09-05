@@ -2,7 +2,6 @@
 #'
 #' @param D list of lipd files
 #' @import flexdashboard
-#' @import maptools
 #' @import readr
 #' @import stringr
 #' @import dplyr

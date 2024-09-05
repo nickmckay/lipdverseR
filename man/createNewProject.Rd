@@ -7,13 +7,12 @@
 createNewProject(
   templateID = "1JEm791Nhd4fUuyqece51CSlbR2A2I-pf8B0kFgwynug",
   project = "newProject",
-  versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY"
+  versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
+  googEmail = "nick.mckay2@gmail.com"
 )
 }
 \arguments{
-\item{qcdf}{QC Data.frame to upload}
-
-\item{qcName}{Name of the qc file}
+\item{googEmail}{}
 }
 \description{
 Create the files for a new project
