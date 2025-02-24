@@ -443,6 +443,12 @@ createProjectMapHtml <- function(TS,project,projVersion,webdir = "/Volumes/data/
 
   #All datasets
   dsn <- lipdR::pullTsVariable(TS,"dataSetName")
+
+  #filter for in this compilation
+  itc <- inThisCompilation(TS,project,projVersion)
+
+  dsn <- dsn[itc] #restrict to only those in this compilation
+
   ui <- which(!duplicated(dsn))
   udsn <- dsn[ui]
   lat <- lipdR::pullTsVariable(TS,"geo_latitude")[ui]
