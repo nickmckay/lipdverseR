@@ -33,17 +33,25 @@ createDatabaseReference <- function(D){
 #' @export
 addLipdToDatabase <- function(L,
                               dbPath = "/Users/nicholas/Dropbox/lipdverse/database/",
-                              standardize = FALSE){
+                              standardize = FALSE,parallelize = FALSE){
 
 
   if(currentlyUpdating()){
     stop("Can't update any files because an update is currently running.\n\n Check https://lipdverse.org/updateStatus.txt for details")
   }
 
+  #test for valid LiPD file
+  isValid <- lipdR::validLipd(L)
+
+  if(!isValid){
+    stop("The LiPD file is not valid. Run lipdR::validLipd() to diagnose the problems")
+  }
+
   if(exists("databaseRef",envir = .GlobalEnv)){
     databaseRef <- get("databaseRef",envir = .GlobalEnv)
   }else{
-    databaseRef <- createDatabaseReference(lipdR::readLipd(dbPath))
+    future::plan(future::multisession,workers = 16)
+    databaseRef <- createDatabaseReference(lipdR::readLipd(dbPath,parallel = parallelize))
     assign("databaseRef",value = databaseRef,envir = .GlobalEnv)
 
   }

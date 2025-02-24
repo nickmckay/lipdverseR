@@ -1,7 +1,3 @@
-.libPaths("/Library/Frameworks/R.framework/Versions/4.2/Resources/library")
-rmarkdown::find_pandoc(dir = "/Applications/RStudio.app/Contents/MacOS/quarto/bin/tools")
-setwd("/Users/nicholas/GitHub/lipdverseR/")
-
 devtools::load_all(".")
 #library(lipdverseR)
 library(magrittr)
@@ -9,7 +5,7 @@ library(tidyverse)
 library(lipdR)
 library(glue)
 library(drake)
-library(profvis)
+#library(profvis)
 setwd("/Users/nicholas/GitHub/lipdverseR/")
 
 lipdR:::updateStandardTables()
@@ -44,6 +40,33 @@ HoloceneHydroclimate <- drake_plan(
   data8 = finalize(params,data7),
   changeloggingAndUpdating(params,data8)
   )
+
+
+hydroclimate2k <- drake_plan(
+  params = buildParams("hydroclimate2k",
+                       "/Users/nicholas/Dropbox/lipdverse/database",
+                       "/Users/nicholas/Dropbox/lipdverse/html/",
+                       qcId = "1OzbcpfnxRUDfYs3XJYaBXniFL5nVL8dW1rIrC_EFPpQ",
+                       lastUpdateId = "1xn76PBL4sdxiDO8KdTnSrjJac8mUFIkk3kssJpcIHx4",
+                       googEmail = "nick.mckay2@gmail.com",
+ageOrYear = "year",
+                       updateWebpages = TRUE,
+                      qcStandardizationCheck = FALSE,
+                       standardizeTerms = FALSE,
+                       serialize = TRUE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2a = getQcInfo(params,data1),
+  data2 = standardizeQCInfo(params,data2a),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
 
 Hydro21k <- drake_plan(
   params = buildParams("Hydro21k",
@@ -225,8 +248,8 @@ Temp12k <- drake_plan(
 
 Temp24k <- drake_plan(
   params = buildParams("Temp24k",
-                       "/Volumes/data/Dropbox/lipdverse/database/",
-                       "/Volumes/data/Dropbox/lipdverse/html/",
+                       "~/Dropbox/lipdverse/database/",
+                       "~/Dropbox/lipdverse/html/",
                        qcId = "17XaSH1MNCtBI6ftEnTOHgy9C6mtXvYpR7JCNUNT-vI8",
                        lastUpdateId = "1BHf1RNwjFkDCs57CxMEbbg3zWmk15Od7HL5wi3FbkK8",
                        googEmail = "nick.mckay2@gmail.com",
@@ -235,6 +258,33 @@ Temp24k <- drake_plan(
                        updateLipdverse = FALSE,
                        standardizeTerms = FALSE,
                        serialize = TRUE),
+  updateNeeded = checkIfUpdateNeeded(params),
+  data1 = loadInUpdatedData(params),
+  data2a = getQcInfo(params,data1),
+  data2 = standardizeQCInfo(params,data2a),
+  data3 = createQcFromFile(params,data2),
+  data4 = mergeQcSheets(params,data3),
+  data5 = updateTsFromMergedQc(params,data4),
+  data60 = createDataPages(params,data5),
+  data61 = createProjectWebpages(params,data60),
+  data7 = updateGoogleQc(params,data61),
+  data8 = finalize(params,data7),
+  changeloggingAndUpdating(params,data8)
+)
+
+
+LakeStatus21k <- drake_plan(
+  params = buildParams("LakeStatus21k",
+                       "~/Dropbox/lipdverse/database/",
+                       "~/Dropbox/lipdverse/html/",
+                       qcId = "1J-lsbE2f98SaMXQ0u-sOfnCS6_nNBz54kU22zYVqkqg",
+                       lastUpdateId = "1ydOXLOG8S82LRhb6m0vXH7JpGpziKn_ZDwH7O_fyb-k",
+                       googEmail = "nick.mckay2@gmail.com",
+                       qcStandardizationCheck = FALSE,projVersion = "1_0_0",
+                       updateWebpages = FALSE,
+                       updateLipdverse = FALSE,
+                       standardizeTerms = FALSE,
+                       serialize = FALSE),
   updateNeeded = checkIfUpdateNeeded(params),
   data1 = loadInUpdatedData(params),
   data2a = getQcInfo(params,data1),
@@ -322,7 +372,6 @@ af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE
 
 #update vocab website
 #source("~/GitHub/lipdverse-website/updateWebserver.R")
-  #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
 
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/HoloceneAbruptChange/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/HoloceneAbruptChange
@@ -338,3 +387,9 @@ af <- list.dirs("~/Dropbox/lipdverse/html/",recursive = FALSE,full.names = FALSE
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/lipdverse/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/lipdverse
 
 #rsync -rvauz --delete /Users/nicholas/Dropbox/lipdverse/html/GBRCD/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/GBRCD
+
+#rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/hydroclimate2k/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/hydroclimate2k
+#rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/LakeStatus21k/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/LakeStatus21k
+
+#rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
+

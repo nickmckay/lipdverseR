@@ -160,7 +160,7 @@ createQueryCsv <- function(D){
              "paleoData_mostRecentCompilations", "interpretation1_seasonality","paleoData_hasTimeTsid")
 
 
-  keeps <- union(keeps,names(tibdg)) #ignore any that aren't in there
+  keeps <- intersect(keeps,names(tibdg)) #ignore any that aren't in there
 
 
   tibdg <- dplyr::select(tibdg,!!keeps)
@@ -174,20 +174,25 @@ createQueryCsv <- function(D){
 #' Update the lipdverse query sheet with updated data
 #'
 #' @param D  a multiLipd object
+#' @param append append the updated query sheet to existing? This will not replace non-updated files. Default = TRUE, only use FALSE if you want to overwrite the entire database with this multilipd object
 #'
 #' @export
-updateQueryCsv <- function(D){
+updateQueryCsv <- function(D,append = TRUE){
   newQCSV <- createQueryCsv(D) %>% dplyr::mutate(dplyr::across(dplyr::everything(), as.character))
 
   #get the old one
   oldQCSV <- readr::read_csv(file = "~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.csv") %>%
     dplyr::mutate(dplyr::across(dplyr::everything(), as.character))
 
-  #update the old with the new
+  if(append){#update the old with the new
   #remove updated columns
   up <- oldQCSV %>%
     dplyr::filter(!paleoData_TSid %in% newQCSV$paleoData_TSid) %>%
     dplyr::bind_rows(newQCSV)
+
+  }else{#overwrite with this one
+    up <- newQCSV
+  }
 
   #write and update
   readr::write_csv(up,file = "~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.csv")
@@ -195,4 +200,95 @@ updateQueryCsv <- function(D){
       zipfile = "~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.zip",extras = '-j')
   tools::md5sum("~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.zip") %>%
     readr::write_file("~/Dropbox/lipdverse/html/lipdverse/lipdverseQuery.md5")
+
+  updateSqlQuery(queryTable = up)
+}
+
+
+
+#devtools::load_all()
+#update_queryTable()
+# dim(queryTable)
+# colnames(queryTable)
+# length(unique(queryTable$dataSetName))
+# length(unique(queryTable$datasetId))
+
+#firstMatches <- match(unique(queryTable$datasetId), queryTable$datasetId)
+datasetIDcollapse <- function(x){stringr::str_remove(paste0(na.omit(unique(x)), collapse = ","),pattern = "^,|,$")}
+
+
+
+updateSqlQuery <- function(queryTable){
+
+    df1 <- queryTable |>
+    dplyr::group_by(datasetId) |>
+    dplyr::summarise(dataSetName = datasetIDcollapse(dataSetName),
+                     archiveType = datasetIDcollapse(archiveType),
+                     TSid = datasetIDcollapse(paleoData_TSid),
+                     paleoData_mostRecentCompilations = datasetIDcollapse(paleoData_mostRecentCompilations),
+                     interpretation1_seasonality = datasetIDcollapse(interpretation1_seasonality),
+                     country = datasetIDcollapse(country),
+                     continent = datasetIDcollapse(continent),
+                     medianResolution = max(medianResolution,na.rm = TRUE),
+                     interp_Vars = datasetIDcollapse(interp_Vars),
+                     paleoData_variableName = datasetIDcollapse(paleoData_variableName),
+                     minAge = max(minAge,na.rm = TRUE),
+                     maxAge = min(maxAge,na.rm = TRUE),
+                     geo_latitude = mean(as.numeric(geo_latitude),na.rm = TRUE),
+                     geo_longitude = mean(as.numeric(geo_longitude),na.rm = TRUE),
+                     paleoData_proxy = datasetIDcollapse(paleoData_proxy))
+
+
+
+
+  ## Create an sf POINTS object
+  points <- data.frame(df1$geo_longitude, df1$geo_latitude)
+  pts <- sf::st_as_sf(points, coords=1:2, crs=4326)
+
+  ## Find which points fall over land
+  ii <- !is.na(as.numeric(sf::st_intersects(pts, spData::world)))
+
+  ## Check that it worked
+  # plot(st_geometry(world))
+  # plot(pts, col=1+ii, pch=16, add=TRUE)
+
+  ##Add column for isTerrestrial
+  df1 <- cbind.data.frame(df1, isTerrestrial=ii)
+
+
+  #replace "NA" with NA where this is the unique variable
+  df1[df1 == "NA"] <- NA
+
+  #Remove NA where other variables exist
+  rmExtraNA <- function(df){
+    for(j in 1:nrow(df)){
+      for(k in 1:ncol(df)){
+        if (grepl(",", df1[j,k])){
+          #print(c(j,k))
+          #print(strsplit(df[j,k], ","))
+          a1 <- unlist(strsplit(df[j,k], ","))
+          df[j,k] <- paste0(a1[!a1 == "NA"], collapse = ",")
+        }
+      }
+    }
+    df
+  }
+
+  df1 <- rmExtraNA(df1)
+
+  #replace dataSet queryTable
+  #connection info
+  conInf <- readr::read_tsv("sql.secret",col_names = FALSE)
+
+  mysqlconnection = RMySQL::dbConnect(RMySQL::MySQL(),
+                                      dbname='lipdverse',
+                                      host='143.198.98.66',
+                                      port=3306,
+                                      user=conInf$X1[[1]],
+                                      password=conInf$X1[[2]])
+
+
+  dbWriteTable(mysqlconnection, "dataSetQuery", df1, overwrite=TRUE)
+
+
 }

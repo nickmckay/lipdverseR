@@ -101,6 +101,13 @@ createBibtexEntry <- function(pub){
 
 getDatasetBibtex <- function(L){
   databib <- purrr::map(L$pub,createBibtexEntry)
+  ls <- purrr::map_dbl(databib,length)
+
+  good <- which(ls > 0)
+
+  if(length(good) > 0){
+    databib <- databib[good]
+  }
   return(databib)
 }
 
@@ -167,6 +174,8 @@ createBibDfFromLipd <- function(D){
     allDsid <- D$datasetId
   }else{
     giant <- purrr::map(D,getDatasetBibtex,.progress = TRUE)
+
+  #remove empty
 
 
   allRefTib <- as.data.frame(giant[[1]][1])
@@ -286,11 +295,11 @@ formatAuthorForBibtex <- function(pub){
       paste(collapse = " and ")
   }
 
-  if(is.null(pub$author)){
+  if(all(is.null(pub$author))){
     pub$author <- "Missing Author"
   }
 
-  if(is.na(pub$author)){
+  if(all(is.na(pub$author))){
     pub$author <- "Missing Author"
   }
 

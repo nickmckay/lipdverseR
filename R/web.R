@@ -243,7 +243,7 @@ createSidebarHtml <- function(L,webdir = "/Volumes/data/Dropbox/lipdverse/html")
   #large pub section
   pubNames <- allNames[grep("^pub*", allNames)]
   if(length(pubNames)>1){
-    npub <- max(as.numeric(str_extract_all(pubNames,pattern = "[0-9]")),na.rm = TRUE)
+    npub <- max(as.numeric(str_extract_all(pubNames,pattern = "\\d{1,}")),na.rm = TRUE)
   }else{
     npub <- 0
   }

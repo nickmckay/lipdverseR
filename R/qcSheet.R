@@ -854,8 +854,11 @@ checkfun <- function(cn,cv,compName,compVers){
 
   # old code here:
   # bothMatch <- (cn==compName & purrr::map_lgl(cv,function(x){any(x == compVers)}))
-  bothMatch <- (cn==compName & anycvm)
-
+  # if(is.na(cv)){# only look at comp name if version is NA
+  #   bothMatch <- cn==compName
+  # }else{
+    bothMatch <- (cn==compName & anycvm)
+  #}
   #put NAs back in for compName
   incn <- which(is.na(cn))
   bothMatch[incn] <- NA
@@ -880,9 +883,18 @@ inThisCompilation <- function(TS,compName,compVers){
   allComps <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationName",allNames)]
   allVers <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationVersion",allNames)]
 
+  if(length(allComps) != length(allVers)){#generally this is bad
+    for(i in 1:length(allComps)){
+      if(! str_c("inCompilationBeta",i,"_compilationVersion") %in% allNames){
+        TS <- pushTsVariable(TS,str_c("inCompilationBeta",i,"_compilationVersion"),rep(NA,times = length(TS)),createNew = TRUE)
+      }
+    }
+    allNames <- sort(unique(unlist(sapply(TS,names))))#get all names in TS
+      allVers <- allNames[grepl(pattern = "inCompilationBeta[0-9]+_compilationVersion",allNames)]
+  }
+
   if(length(allComps) == 0){
     return(matrix(NA,nrow = length(TS)))
-
   }
   allCompNames <- vector(mode = "list",length=length(allComps))
   allCompVersions <- vector(mode = "list",length=length(allComps))

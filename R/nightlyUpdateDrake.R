@@ -38,6 +38,7 @@ updateNeeded <- function(project,webDirectory,lipdDir,qcId,versionMetaId = "1OHD
   #
   # lastMD5 <- directoryMD5(file.path(webDirectory,project,"current_version"))
   #
+  return(TRUE)
   googlesheets4::gs4_auth(email = googEmail,cache = ".secret")
 
 
@@ -261,11 +262,12 @@ loadInUpdatedData <- function(params){
   }
 
   #if looking at full database:
-  if(lipdDir == "/Volumes/data/Dropbox/lipdverse/database" | lipdDir == "/Volumes/data/Dropbox/lipdverse/database/"){
+  if(grepl("lipdverse/database",lipdDir,fixed = TRUE)){
     #getDatasetInCompilationFromQC()
 
     #0. Figure out which datasets to load based on QC sheet.
     dscomp <- read_sheet_retry(ss = qcId,sheet = "datasetsInCompilation")
+    dscomp$inComp <- as.character(dscomp$inComp)
 
     #make sure that all names there are in the lipdDir, and that there are no duplicates
     if(any(duplicated(dscomp$dsn))){
@@ -279,9 +281,11 @@ loadInUpdatedData <- function(params){
     missing <- which(!dscomp$dsn %in% af)
 
     #remove this next time
+    if(length(missing) > 0){
     dscomp <- dscomp[-missing,]
+    }
 
-    #see if any in dscomp don't exist
+    #see if any in dscomp don't exist again
     missing <- which(!dscomp$dsn %in% af)
 
     if(length(missing) > 0){
@@ -357,9 +361,16 @@ loadInUpdatedData <- function(params){
 
   #check for numeric age
   isNumAge <- purrr::map_lgl(TS,\(x) all(is.numeric(x$age)) |  all(is.numeric(x$year)))
+  allDsn <- pullTsVariable(TS,"dataSetName")
+  uDsn <- unique(allDsn)
+  numericAge <- matrix(NA,nrow = length(uDsn))
+  for(un in 1:length(uDsn)){
+    these <- which(uDsn[un] == allDsn)
+    numericAge[un] <- any(isNumAge[these])
+  }
 
-    if(any(!isNumAge)){
-    print(unique(unlist(purrr::map_chr(TS[!isNumAge],"dataSetName"))))
+    if(any(!numericAge)){
+    print(uDsn[!numericAge])
     stop("these datasets have non numeric ages")
   }
 
@@ -1021,7 +1032,8 @@ updateTsFromMergedQc <- function(params,data){
 
     cl <- try(createChangelog(Dloaded[[oldName]],nD[[newName]]))
     if(is(cl,"try-error")){
-      stop("Error in dataset changelogging")
+      #cl <- try(createChangelog(Dloaded[[oldName]],Dloaded[[oldName]])) #this is a quick fix, remove it.
+      stop("Error in dataset changelogging") #turn this back on
     }
 
     nD[[newName]] <- updateChangelog(nD[[newName]],
@@ -1215,7 +1227,7 @@ createProjectWebpages <- function(params,data){
   updateGoogleReferencesFromLipd(allRefIc)
   createBibliographicReferenceHtml(DC = nDic,tsC = nnTStib,proj = project,projVersion = projVersion,webdir = webDirectory)
 
- # updateLipdverse <- FALSE
+  updateLipdverse <- FALSE
 
   if(updateLipdverse){
     updateQueryCsv(nD)
@@ -1533,6 +1545,10 @@ updateGoogleQc <- function(params,data){
   googlesheets4::sheet_copy(from_ss = lastUpdateId, from_sheet = 1,to_ss = qcId, to_sheet = "QC",.before = "datasetsInCompilation")
 
   #write_sheet_retry(qc2w,ss = qcId, sheet = 1)
+  if(is.na(projVersion)){
+    projVersion <- "0_0_1"
+  }
+
   googledrive::drive_rename(googledrive::as_id(qcId),name = stringr::str_c(project," v.",projVersion," QC sheet"))
 
 
@@ -1685,13 +1701,13 @@ changeloggingAndUpdating <- function(params,data){
 
 
   if(length(Dpo)>0){
-    createProjectChangelog(Dold = Dpo,
+    try(createProjectChangelog(Dold = Dpo,
                            Dnew = DF,
                            proj = project,
                            projVersOld = lastVersionNumber,
                            projVersNew = projVersion,
                            webDirectory = webDirectory,
-                           notesTib = dsidKey)
+                           notesTib = dsidKey))
 
   }else{#write empty changelog
     cle <- glue::glue("## Changelog is empty - probably because there were no files in the web directory for {project} version {lastVersionNumber}")
@@ -1760,9 +1776,9 @@ createSerializations <- function(D,
                                  project,
                                  projVersion,
                                  remove.ensembles = TRUE,
-                                 matlabUtilitiesPath = "/Volumes/data/GitHub/LiPD-utilities/Matlab",
-                                 matlabPath = "/Applications/MATLAB_R2021b.app/bin/matlab",
-                                 python3Path="/Users/nicholas/opt/anaconda3/envs/pyleo/bin/python3"){
+                                 matlabUtilitiesPath = "~/GitHub/LiPD-utilities/Matlab",
+                                 matlabPath = "/Applications/MATLAB_R2023a.app/bin/matlab",
+                                 python3Path="/opt/anaconda3/envs/pyleo/bin/python3"){
   #create serializations for web
   #R
   if(remove.ensembles){

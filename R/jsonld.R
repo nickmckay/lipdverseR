@@ -328,10 +328,14 @@ createJsonldSnippet <- function(L){
   J$version <- getVersion(L)
 
   #keywords #variable names for now
-  J$keywords <- extractTs(L) %>%
+  J$keywords <- try(extractTs(L) %>%
     pullTsVariable("paleoData_variableName") %>%
     setdiff(c("age","depth","year")) %>%
-    as.list()
+    as.list())
+
+  if(is(J$keywords,"try-error")){
+    stop(glue::glue("{L$dataSetName} seems to have no paleoData_variableName"))
+  }
 
   #add geospatial information
   J$spatialCoverage[["@type"]] <- "Place"
@@ -430,9 +434,11 @@ createDescription <- function(L){
   }
 
   #variables
-  variables <- extractTs(L) %>%
-    pullTsVariable("paleoData_variableName") %>%
-    setdiff(c("age","depth","year"))
+  variables <- try(extractTs(L) %>% pullTsVariable("paleoData_variableName") %>% setdiff(c("age","depth","year")))
+
+  if(is(variables,"try-error")){
+    stop(glue::glue("{L$dataSetName} seems to have no paleoData_variableName"))
+  }
 
   if(length(variables) > 2){
   variables <- paste(variables,collapse= ", ") %>%
