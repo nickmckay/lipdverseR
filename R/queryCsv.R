@@ -307,11 +307,11 @@ updateSqlQuery <- function(queryTable){
     print("Verifying updates...")
 
     # Check dataSetQuery count
-    dataset_count <- RMySQL::dbGetQuery(mysqlconnection, "SELECT COUNT(*) as count FROM dataSetQuery")
+    dataset_count <- DBI::dbGetQuery(mysqlconnection, "SELECT COUNT(*) as count FROM dataSetQuery")
     print(paste("  dataSetQuery now has", dataset_count$count, "rows"))
 
     # Check query count
-    query_count <- RMySQL::dbGetQuery(mysqlconnection, "SELECT COUNT(*) as count FROM query")
+    query_count <- DBI::dbGetQuery(mysqlconnection, "SELECT COUNT(*) as count FROM query")
     print(paste("  query now has", query_count$count, "rows"))
 
     # Close connection
