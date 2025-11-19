@@ -222,6 +222,7 @@ datasetIDcollapse <- function(x){stringr::str_remove(paste0(na.omit(unique(x)), 
 
 updateSqlQuery <- function(queryTable){
 
+    # ========== EXISTING CODE: Create dataset-level summary ==========
     df1 <- queryTable |>
     dplyr::group_by(datasetId) |>
     dplyr::summarise(dataSetName = datasetIDcollapse(dataSetName),
@@ -241,57 +242,80 @@ updateSqlQuery <- function(queryTable){
                      paleoData_proxy = datasetIDcollapse(paleoData_proxy),
                      paleoData_units = datasetIDcollapse(paleoData_units))
 
+    ## Create an sf POINTS object
+    points <- data.frame(df1$geo_longitude, df1$geo_latitude)
+    pts <- sf::st_as_sf(points, coords=1:2, crs=4326)
 
+    ## Find which points fall over land
+    ii <- !is.na(as.numeric(sf::st_intersects(pts, spData::world)))
 
+    ##Add column for isTerrestrial
+    df1 <- cbind.data.frame(df1, isTerrestrial=ii)
 
-  ## Create an sf POINTS object
-  points <- data.frame(df1$geo_longitude, df1$geo_latitude)
-  pts <- sf::st_as_sf(points, coords=1:2, crs=4326)
+    #replace "NA" with NA where this is the unique variable
+    df1[df1 == "NA"] <- NA
 
-  ## Find which points fall over land
-  ii <- !is.na(as.numeric(sf::st_intersects(pts, spData::world)))
-
-  ## Check that it worked
-  # plot(st_geometry(world))
-  # plot(pts, col=1+ii, pch=16, add=TRUE)
-
-  ##Add column for isTerrestrial
-  df1 <- cbind.data.frame(df1, isTerrestrial=ii)
-
-
-  #replace "NA" with NA where this is the unique variable
-  df1[df1 == "NA"] <- NA
-
-  #Remove NA where other variables exist
-  rmExtraNA <- function(df){
-    for(j in 1:nrow(df)){
-      for(k in 1:ncol(df)){
-        if (grepl(",", df1[j,k])){
-          #print(c(j,k))
-          #print(strsplit(df[j,k], ","))
-          a1 <- unlist(strsplit(df[j,k], ","))
-          df[j,k] <- paste0(a1[!a1 == "NA"], collapse = ",")
+    #Remove NA where other variables exist
+    rmExtraNA <- function(df){
+      for(j in 1:nrow(df)){
+        for(k in 1:ncol(df)){
+          if (grepl(",", df1[j,k])){
+            a1 <- unlist(strsplit(df[j,k], ","))
+            df[j,k] <- paste0(a1[!a1 == "NA"], collapse = ",")
+          }
         }
       }
+      df
     }
-    df
-  }
 
-  df1 <- rmExtraNA(df1)
+    df1 <- rmExtraNA(df1)
 
-  #replace dataSet queryTable
-  #connection info
-  conInf <- readr::read_tsv("sql.secret",col_names = FALSE,col_types = "c")
+    # ========== NEW CODE: Prepare time-series level table ==========
+    # The queryTable input is already at the time-series level
+    # We just need to clean it up for the query table
 
-  mysqlconnection = RMySQL::dbConnect(RMySQL::MySQL(),
-                                      dbname='lipdverse',
-                                      host='143.198.98.66',
-                                      port=3306,
-                                      user=conInf$X1[[1]],
-                                      password=conInf$X1[[2]])
+    print(paste("Preparing to update MySQL tables..."))
+    print(paste("  dataSetQuery will have", nrow(df1), "rows (dataset level)"))
+    print(paste("  query will have", nrow(queryTable), "rows (time series level)"))
 
+    # Clean up the time-series table
+    queryTable_clean <- queryTable
+    queryTable_clean[queryTable_clean == "NA"] <- NA
 
-  RMySQL::dbWriteTable(mysqlconnection, "dataSetQuery", df1, overwrite=TRUE)
+    # ========== DATABASE CONNECTION AND UPDATES ==========
+    #connection info
+    conInf <- readr::read_tsv("sql.secret",col_names = FALSE,col_types = "c")
 
+    mysqlconnection = RMySQL::dbConnect(RMySQL::MySQL(),
+                                        dbname='lipdverse',
+                                        host='143.198.98.66',
+                                        port=3306,
+                                        user=conInf$X1[[1]],
+                                        password=conInf$X1[[2]])
 
+    # Update dataSetQuery table (dataset-level aggregation)
+    print("Writing to dataSetQuery table...")
+    RMySQL::dbWriteTable(mysqlconnection, "dataSetQuery", df1, overwrite=TRUE)
+    print("dataSetQuery updated")
+
+    # Update query table (time-series level)
+    print("Writing to query table...")
+    RMySQL::dbWriteTable(mysqlconnection, "query", queryTable_clean, overwrite=TRUE)
+    print("query updated")
+
+    # Verify the updates
+    print("Verifying updates...")
+
+    # Check dataSetQuery count
+    dataset_count <- RMySQL::dbGetQuery(mysqlconnection, "SELECT COUNT(*) as count FROM dataSetQuery")
+    print(paste("  dataSetQuery now has", dataset_count$count, "rows"))
+
+    # Check query count
+    query_count <- RMySQL::dbGetQuery(mysqlconnection, "SELECT COUNT(*) as count FROM query")
+    print(paste("  query now has", query_count$count, "rows"))
+
+    # Close connection
+    RMySQL::dbDisconnect(mysqlconnection)
+
+    print("Database update complete!")
 }
