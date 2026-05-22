@@ -151,13 +151,48 @@ createQueryCsv <- function(D){
   tibdg$interp_Details <- purrr::map_chr(step2,function(x) paste0(unlist(x[!is.na(x)]), collapse = '|'))
 
 
+  # Collapse paleoData_inCompilationBeta* into a single pipe-joined scalar
+  # column "Name-Version|Name-Version". Version is the max (most recent)
+  # compilationVersion listed for that name on the TSID. ts2tibble has already
+  # flattened the nested list into numbered scalar columns
+  # paleoData_inCompilationBetaN_compilationName and
+  # paleoData_inCompilationBetaN_compilationVersionM.
+  icb_name_cols <- which(stringr::str_detect(
+    names(tibdg), "^paleoData_inCompilationBeta\\d+_compilationName$"
+  ))
+  if (length(icb_name_cols) > 0) {
+    tibdg$inCompilationBeta <- apply(tibdg, 1, function(row) {
+      parts <- character()
+      for (ni in icb_name_cols) {
+        nm <- row[[ni]]
+        if (is.na(nm) || nm == "" || nm == "NA") next
+        idx <- stringr::str_extract(names(tibdg)[ni], "\\d+")
+        vcols <- which(stringr::str_detect(
+          names(tibdg),
+          paste0("^paleoData_inCompilationBeta", idx, "_compilationVersion\\d+$")
+        ))
+        vers <- unlist(row[vcols])
+        vers <- vers[!is.na(vers) & vers != "" & vers != "NA"]
+        if (length(vers) == 0) {
+          parts <- c(parts, nm)
+        } else {
+          parts <- c(parts, paste0(nm, "-", max(vers)))
+        }
+      }
+      paste(parts, collapse = "|")
+    })
+  } else {
+    tibdg$inCompilationBeta <- ""
+  }
 
 
   keeps <- c("paleoData_TSid","archiveType", "paleoData_variableName", "paleoData_units","paleoData_proxy",
              "geo_latitude", "geo_longitude","geo_elevation", "minAge", "maxAge",
              "medianResolution", "auth", "datasetId", "dataSetName","country",
              "continent", "interp_Vars", "interp_Details",
-             "paleoData_mostRecentCompilations", "interpretation1_seasonality","paleoData_hasTimeTsid")
+             "paleoData_mostRecentCompilations", "interpretation1_seasonality","paleoData_hasTimeTsid",
+             "paleoData_useInGlobalTemperatureAnalysis",
+             "inCompilationBeta")
 
 
   keeps <- intersect(keeps,names(tibdg)) #ignore any that aren't in there
@@ -232,11 +267,15 @@ updateSqlQuery <- function(queryTable){
                      interpretation1_seasonality = datasetIDcollapse(interpretation1_seasonality),
                      country = datasetIDcollapse(country),
                      continent = datasetIDcollapse(continent),
-                     medianResolution = max(medianResolution,na.rm = TRUE),
+                     # Aggregate age / resolution as the TSID envelope
+                     # (union), not the intersection: a dataset matches an
+                     # `<col> <op> N` filter on dataSetQuery whenever *any*
+                     # TSID would match it on the per-TSID query table.
+                     medianResolution = min(medianResolution,na.rm = TRUE),
                      interp_Vars = datasetIDcollapse(interp_Vars),
                      paleoData_variableName = datasetIDcollapse(paleoData_variableName),
-                     minAge = max(minAge,na.rm = TRUE),
-                     maxAge = min(maxAge,na.rm = TRUE),
+                     minAge = min(minAge,na.rm = TRUE),
+                     maxAge = max(maxAge,na.rm = TRUE),
                      geo_latitude = mean(as.numeric(geo_latitude),na.rm = TRUE),
                      geo_longitude = mean(as.numeric(geo_longitude),na.rm = TRUE),
                      paleoData_proxy = datasetIDcollapse(paleoData_proxy),
