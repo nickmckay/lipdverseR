@@ -59,6 +59,10 @@ gbrIsCompositeCalibration,gbrIsCompositeCalibration,character,TRUE
 gbrIsCoreIDOtherStudy,gbrIsCoreIDOtherStudy,character,TRUE
 gbrIsSstCalibration,gbrIsSstCalibration,character,TRUE
 gbrUseSstCalibration,gbrUseSstCalibration,character,TRUE
+geo_depthMax,geo_depthMax,character,TRUE
+geo_area,geo_area,character,TRUE
+geo_depthCoring,geo_depthCoring,character,TRUE
+geo_basinType,geo_basinType,character,TRUE
 elevation,geo_elevation,numeric,TRUE
 countryOcean,geo_gcmdLocation,character,TRUE
 lat,geo_latitude,numeric,TRUE
@@ -124,6 +128,7 @@ coralHydro2kGroup,paleoData_coralHydro2kGroup,numeric,FALSE
 paleoData_coralTissueThickness,paleoData_coralTissueThickness,character,FALSE
 paleoData_core,paleoData_core,character,FALSE
 coreName,paleoData_coreName,character,FALSE
+paleoData_createdBy,paleoData_createdBy,character,FALSE
 datum,paleoData_datum,character,FALSE
 description,paleoData_description,character,FALSE
 isotopeInterpretation1_equilibriumEvidence,paleoData_equilibriumEvidence,character,FALSE
@@ -141,6 +146,7 @@ hasUncertainty,paleoData_hasUncertainty,character,FALSE
 inCompilation,paleoData_inCompilation,character,FALSE
 inferredMaterial,paleoData_inferredMaterial,character,FALSE
 isComposite,paleoData_isComposite,character,FALSE
+hydroclimate 2k Certification,paleoData_hydroclimate2kCertification,character,FALSE
 Iso2k QC certification (INITIALS),paleoData_iso2kCertification,character,FALSE
 QC notes from Hackathon #2 (and initials),paleoData_iso2kHackathonNotes,character,FALSE
 Iso2k primary timeseries for dataset,paleoData_iso2kPrimaryTimeseries,character,FALSE

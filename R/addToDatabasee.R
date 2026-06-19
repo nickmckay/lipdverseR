@@ -33,6 +33,7 @@ addLipdToDatabase <- function(L,
                               dbPath = "/Users/nicholas/Dropbox/lipdverse/database/",
                               dbRef = NA,
                               standardize = FALSE,
+                              createdBy = NA,
                               parallelize = FALSE,
                               checkValid = TRUE){
 
@@ -83,7 +84,7 @@ addLipdToDatabase <- function(L,
     #it's already there!
     dsn <- databaseRef$dataSetName[which(databaseRef$datasetId %in% L$datasetId)][1]
     Lold <- lipdR::readLipd(file.path(dbPath,paste0(dsn,".lpd")))
-    cl <- createChangelog(Lold,L)
+    cl <- lipdR::createChangelog(Lold,L)
     res <- "Updated"
     databaseRef <<- databaseRef
 
@@ -153,7 +154,7 @@ addLipdToDatabase <- function(L,
   #update the changelog
   if(is.null(L$changelog)){
     print(glue::glue("{L$dataSetName} is missing a changelog. Intiating one now."))
-    L <- lipdverseR::initializeChangelog(L,notes = "Added to lipdverse database.")
+    L <- lipdR::initializeChangelog(L,notes = "Added to lipdverse database.")
     if(res != "Added"){#update the changelog
       L <- updateChangelog(L,changelog = cl,notes = "Updated lipdverse database entry with a changed file.")
     }
@@ -169,6 +170,16 @@ addLipdToDatabase <- function(L,
   if(standardize){
     TS <- extractTs(L)
     isValidAll(TS)
+  }
+
+  if(all(!is.na(createdBy))){
+    ts <- as.lipdTsTibble(L)
+    if(!any(names(ts) == "paleoData_createdBy")){
+      ts$paleoData_createdBy <- NA
+    }
+    newCols <- which(is.na(ts$paleoData_createdBy))
+    ts$paleoData_createdBy[newCols] <- createdBy
+    L <- as.lipd(ts)
   }
 
   lipdR::writeLipd(L,file.path(dbPath))

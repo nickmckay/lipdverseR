@@ -1814,6 +1814,35 @@ changeloggingAndUpdating <- function(params,data){
   file.copy(file.path(webDirectory,project,projVersion,str_c(project,projVersion,".zip")),
             file.path(webDirectory,project,"current_version","current_version.zip"),overwrite = TRUE)
 
+  # Use this code if you have an issue recovering lost ensembles. First, restore on dropbox, then load and run these. Paleoensembles are trickier, so do manually. (NM 02.23.26)
+  #
+  # he <- which(map_lgl(DF,hasChronEnsemble) | map_lgl(DF,hasPaleoEnsemble))
+  # nhe <- names(he)
+  # fn <- file.path("~/Dropbox/lipdverse/database",paste0(nhe,".lpd"))
+  # ENS <- readLipd(fn)
+  #
+  # #handle chronensemble first <-
+  # hce <- which(map_lgl(DF,hasChronEnsemble))
+  # for(h in 1:length(hce)){
+  #   L <- DF[[names(hce)[h]]]
+  #   Lo <- ENS[[names(hce)[h]]]
+  #   L$chronData <- Lo$chronData
+  #   L$savedEnsembles <- NULL
+  #   DF[[names(hce)[h]]] <- L
+  # }
+  #
+  # hpe <- which(map_lgl(DF,hasPaleoEnsemble))
+  # L <- DF$`130_806B.Berger.2006`
+  # Lo <- ENS$`130_806B.Berger.2006`
+  # L$paleoData[[1]]$model[[1]]$ensembleTable[[1]]$temperature$values <- Lo$paleoData[[1]]$model[[1]]$ensembleTable[[1]]$temperature$values
+  #
+  # object.size(L)
+  # object.size(Lo)
+  # L$savedEnsembles <- NULL
+  #
+  # DF$`130_806B.Berger.2006` <- L
+  #
+
 
   unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
   writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE,delete.saved.ensembles = TRUE)

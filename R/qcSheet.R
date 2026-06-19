@@ -176,7 +176,13 @@ getMostRecentInCompilationsTs <- function(TS,
                                                                "CoralHydro2k",
                                                                "HoloceneAbruptChange",
                                                                "HoloceneHydroclimate",
-                                                               "LakeStatus21k")){
+                                                               "LakeStatus21k",
+                                                               "RapidArcticWarming",
+                                                               "FreeSoda",
+                                                               "GBRCD",
+                                                               "NAm2kDendro",
+                                                               "LegacyClimate-LiPD"
+                                                               )){
 
   allNames <- sort(unique(unlist(sapply(TS,names))))#get all names in TS
   #get all the names of the compilations
@@ -1157,6 +1163,17 @@ createNewProject <- function(templateID = "17XaSH1MNCtBI6ftEnTOHgy9C6mtXvYpR7JCN
 
 }
 
+#' Update the datasetsInCompilation tab from a vector of dsns or dsids
+#'
+#' @param qcId
+#' @param databaseRef
+#' @param dsns
+#' @param dsids
+#'
+#' @returns
+#' @export
+#'
+#' @examples
 updateDatasetsInCompilation <- function(qcId,databaseRef = NA,dsns = NA,dsids = NA){
 
   if(all(!is.na(dsns)) & all(!is.na(dsids))){

@@ -566,7 +566,7 @@ PalMod <- drake_plan(
 )
 
 
-drake::make(PalMod,lock_envir = FALSE)
+drake::make(Hydro21k,lock_envir = FALSE)
 
 
 #update vocab website
@@ -598,6 +598,8 @@ drake::make(PalMod,lock_envir = FALSE)
 #rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/CoralHydro2k/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/CoralHydro2k
 #rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/Nam2kDendro/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/Nam2kDendro
 #rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/PalMod/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/PalMod
+#rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/Temp12k/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/Temp12k
+
 
 #rsync -rvauz /Users/nicholas/Dropbox/lipdverse/html/data/ npm4@linux.cefns.nau.edu:/www/cefns.nau.edu/seses/lipdverse/data
 
