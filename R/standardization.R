@@ -225,6 +225,152 @@ standardizeLipd <- function(L,standardTables){
 }
 
 
+#' Non-interactive batch standardization of a LiPD object
+#'
+#' Like standardizeLipd() but never calls askUser(). Synonym replacements are
+#' applied silently. Terms with no synonym match are collected into an issues
+#' data frame for later human review instead of prompting.
+#'
+#' @param L a LiPD object
+#' @param standardTables standardTables list (loaded via getStandardTables())
+#' @return list with elements L (updated LiPD object) and issues (data.frame)
+#' @export
+standardizeLipdBatch <- function(L, standardTables = NULL) {
+  if (is.null(standardTables)) {
+    standardTables <- getStandardTables()
+  }
+
+  Lo <- L
+  tts <- as.lipdTsTibble(L)
+
+  toStandardize <- c("paleoData_variableName",
+                     "paleoData_units",
+                     "archiveType",
+                     "paleoData_proxy",
+                     "interpretation_seasonality",
+                     "interpretation_variable")
+
+  nasAllowed <- c(FALSE, TRUE, FALSE, TRUE, TRUE, TRUE)
+
+  changeMade <- FALSE
+  issues <- list()
+
+  for (tti in seq_along(toStandardize)) {
+    tt <- toStandardize[tti]
+
+    if (tt == "paleoData_variableName") {
+      meta_keys <- c("paleoData_isAssemblage", "paleoData_datum", "paleoData_summaryStatistic",
+                     "paleoData_measurementMaterial", "paleoData_inferredMaterial",
+                     "paleoData_method", "paleoData_isPrimary")
+    } else if (tt == "paleoData_proxy") {
+      meta_keys <- c("paleoData_proxyGeneral", "paleoData_measurementMaterial")
+    } else if (tt == "paleoData_units") {
+      meta_keys <- c("paleoData_datum")
+    } else {
+      meta_keys <- NA
+    }
+
+    if (tt == "interpretation_variable") {
+      ttnames <- unique(names(tts)[stringr::str_detect(names(tts), "^interpretation\\d+_variable$")])
+    } else if (tt == "interpretation_seasonality") {
+      ttnames <- unique(names(tts)[stringr::str_detect(names(tts), "^interpretation\\d+_seasonality$")])
+    } else {
+      ttnames <- tt
+    }
+
+    for (ttn in ttnames) {
+      if (nasAllowed[tti]) {
+        ns <- convert_spaces_to_na(tts[[ttn]])
+        if (sum(is.na(ns)) != sum(is.na(tts[[ttn]]))) {
+          changeMade <- TRUE
+          tts[[ttn]] <- ns
+        }
+        toFix <- which(!tts[[ttn]] %in% standardTables[[tt]]$lipdName & !is.na(tts[[ttn]]))
+      } else {
+        toFix <- which(!tts[[ttn]] %in% standardTables[[tt]]$lipdName | is.na(tts[[ttn]]))
+      }
+
+      if (length(toFix) > 0) {
+        for (s in seq_along(toFix)) {
+          idx <- toFix[s]
+          current_val <- tts[[ttn]][idx]
+          synI <- which(tolower(standardTables[[tt]]$synonym) %in% tolower(current_val))
+
+          if (length(synI) > 1) {
+            synICaseSensitive <- which(standardTables[[tt]]$synonym %in% current_val)
+            if (length(synICaseSensitive) == 1) synI <- synICaseSensitive
+          }
+
+          if (length(synI) == 1) {
+            # Auto-apply synonym silently
+            new_val <- standardTables[[tt]]$lipdName[synI]
+            message(glue::glue("{tt}: Synonym found! Replacing {current_val} with {new_val}..."))
+
+            if (tt == "paleoData_variableName") {
+              if (!("paleoData_longName" %in% names(tts))) {
+                tts$paleoData_longName <- NA_character_
+              }
+              if (is.na(tts$paleoData_longName[idx])) {
+                tts$paleoData_longName[idx] <- current_val
+              }
+            }
+
+            tts[[ttn]][idx] <- new_val
+            changeMade <- TRUE
+
+            if (all(!is.na(meta_keys))) {
+              for (mk in meta_keys) {
+                if (!all(is.na(standardTables[[tt]][[mk]][synI]))) {
+                  if (!mk %in% names(tts)) tts[[mk]] <- NA_character_
+                  tts[[mk]][idx] <- standardTables[[tt]][[mk]][synI]
+                }
+              }
+            }
+
+          } else {
+            # No synonym found — collect as issue instead of prompting
+            TSid_val <- if (!is.null(tts$paleoData_TSid[idx])) tts$paleoData_TSid[idx] else NA_character_
+            issues[[length(issues) + 1]] <- list(
+              datasetId    = L$datasetId,
+              dataSetName  = L$dataSetName,
+              TSid         = TSid_val,
+              issue_type   = "unknown_vocabulary",
+              field        = ttn,
+              current_value = as.character(current_val),
+              suggested_value = NA_character_,
+              add_synonym  = NA_character_,
+              new_term     = NA_character_,
+              past_match   = NA_character_,
+              past_id      = NA_character_,
+              resolution   = NA_character_,
+              status       = ""
+            )
+          }
+        }
+      }
+    }
+  }
+
+  if (changeMade) {
+    L <- purrr::transpose(tts) |> collapseTs(force = TRUE)
+    cl <- createChangelog(Lold = Lo, Lnew = L)
+    L <- updateChangelog(L = L, changelog = cl,
+                         notes = "Changes made as part of LiPDverse vocabulary standardization process")
+  }
+
+  issues_df <- if (length(issues) > 0) {
+    dplyr::bind_rows(issues)
+  } else {
+    tibble::tibble(
+      datasetId = character(), dataSetName = character(), TSid = character(),
+      issue_type = character(), field = character(), current_value = character(),
+      suggested_value = character(), add_synonym = character(), new_term = character(),
+      past_match = character(), past_id = character(), resolution = character(), status = character()
+    )
+  }
+
+  return(list(L = L, issues = issues_df))
+}
 
 
 #' Get Standard tables

@@ -20,10 +20,12 @@ write_sheet_retry <- function(data,ss = NULL,sheet = NULL,ntries = 50,timeout = 
   while(TRUE){
     wrote <- try(R.utils::withTimeout({googlesheets4::sheet_write(data, ss = ss, sheet = sheet)},
                                       timeout = timeout,
-                                      onTimeout = "error"),silent = TRUE)
+                                      onTimeout = "error"),silent = FALSE)
 
     if(is(wrote,"try-error")){
       tries <- tries + 1
+      message(glue::glue("write_sheet_retry: attempt {tries}/{ntries} failed."))
+      Sys.sleep(min(tries * 2, 30))
     }else{
       break
     }
@@ -33,15 +35,11 @@ write_sheet_retry <- function(data,ss = NULL,sheet = NULL,ntries = 50,timeout = 
     }
   }
 
- # wrote <- purrr::insistently(googlesheets4::sheet_write(data, ss = ss, sheet = sheet))
-
   if(is(wrote,"try-error")){
-    return("failed to write")
+    stop(glue::glue("write_sheet_retry: failed after {ntries} attempts. Last error above."))
   }else{
     return(wrote)
   }
-
-
 }
 
 
