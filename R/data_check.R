@@ -58,3 +58,47 @@ removeAllNaColumns <- function(L) {
 
   return(L)
 }
+
+
+#' Remove empty measurementTables from a LiPD object
+#'
+#' Removes any measurementTable that contains no column-level lists (i.e. no
+#' variables) from both paleoData and chronData. Useful after
+#' \code{removeAllNaColumns()} may have left behind empty tables.
+#'
+#' @param L a LiPD object
+#' @return the LiPD object with empty measurementTables removed
+#' @export
+removeEmptyMeasurementTables <- function(L) {
+
+  hasNoColumns <- function(tbl) {
+    !any(purrr::map_lgl(tbl, is.list))
+  }
+
+  pcEntryIsEmpty <- function(entry) {
+    length(entry$measurementTable) == 0 &&
+      length(entry$model) == 0
+  }
+
+  for (pc in c("paleoData", "chronData")) {
+    if (length(L[[pc]]) == 0) next
+
+    for (ni in seq_along(L[[pc]])) {
+      mt <- L[[pc]][[ni]]$measurementTable
+      if (length(mt) == 0) next
+      keep <- !purrr::map_lgl(mt, hasNoColumns)
+      L[[pc]][[ni]]$measurementTable <- if (any(keep)) mt[keep] else NULL
+    }
+
+    # Drop entries that now have no tables of any kind
+    keep_entries <- !purrr::map_lgl(L[[pc]], pcEntryIsEmpty)
+    L[[pc]] <- L[[pc]][keep_entries]
+
+    # Drop the entire paleoData/chronData list if nothing remains
+    if (length(L[[pc]]) == 0) {
+      L[[pc]] <- NULL
+    }
+  }
+
+  return(L)
+}

@@ -1,123 +1,104 @@
 library(tidyverse)
+devtools::load_all(".")
+googledrive::drive_auth(email = "nick.mckay2@gmail.com", cache = ".secret")
+googlesheets4::gs4_auth(email = "nick.mckay2@gmail.com", cache = ".secret")
 
-newQC <- read_sheet_retry("1Bp8xw2NgMzvFBWtmVjC2y1Zf7RHXLRMQSQEzX3z5YI8")
-oldQC <- read_sheet_retry("1TlhlrWmbxwl_Fkzd1_36NgxtpOD1tQG1qIgl0N2PzQA")
+newQC <- read_sheet_retry("1Bp8xw2NgMzvFBWtmVjC2y1Zf7RHXLRMQSQEzX3z5YI8", sheet = "QC")
+oldQC <- read_sheet_retry("1FqMMdjH8qcwcrIt0bGXOxc3cYi4OtbBDJTi85re6sIg")
 
-# Get the shared variable names (excluding join key and any .x/.y suffixes)
-shared_vars <- intersect(names(newQC), names(oldQC))
-shared_vars <- setdiff(shared_vars, "TSid") # remove join key
+shared_vars <- setdiff(intersect(names(newQC), names(oldQC)), "TSid")
+big <- inner_join(newQC, oldQC, by = "TSid")
 
-# 1. Loop through all shared variables and count how many are present in old but missing in new
-missing_counts <- map_dfr(shared_vars, function(v) {
+coerce_col <- function(x) {
+  if (is.list(x)) map_chr(x, ~ if (is.null(.x) || length(.x) == 0) NA_character_ else as.character(.x[[1]]))
+  else as.character(x)
+}
+
+# =============================================================
+# Step 1: Check — summarize discrepancies between QC sheets
+# =============================================================
+
+check_summary <- map_dfr(shared_vars, function(v) {
   vx <- paste0(v, ".x")
   vy <- paste0(v, ".y")
-
   if (!all(c(vx, vy) %in% names(big))) return(NULL)
-
-  col_x <- big[[vx]]
-  col_y <- big[[vy]]
-
-  # Unlist list-columns if needed
-  if (is.list(col_x)) col_x <- map_chr(col_x, ~ if (is.null(.x) || length(.x) == 0) NA_character_ else as.character(.x[[1]]))
-  if (is.list(col_y)) col_y <- map_chr(col_y, ~ if (is.null(.x) || length(.x) == 0) NA_character_ else as.character(.x[[1]]))
-
-  # Coerce both to character for safe comparison
-  col_x <- as.character(col_x)
-  col_y <- as.character(col_y)
-
-  n_missing_in_new <- sum(is.na(col_x) & !is.na(col_y), na.rm = TRUE)
-  n_match <- sum(!is.na(col_x) & !is.na(col_y) & col_x == col_y, na.rm = TRUE)
-  n_mismatch <- sum(!is.na(col_x) & !is.na(col_y) & col_x != col_y, na.rm = TRUE)
-  n_new_only <- sum(!is.na(col_x) & is.na(col_y), na.rm = TRUE)
-
+  col_x <- coerce_col(big[[vx]])
+  col_y <- coerce_col(big[[vy]])
   tibble(
-    variable = v,
-    missing_in_new = n_missing_in_new,
-    matching = n_match,
-    mismatched = n_mismatch,
-    new_only = n_new_only
+    variable   = v,
+    n_missing  = sum( is.na(col_x) & !is.na(col_y), na.rm = TRUE),
+    n_spurious = sum(!is.na(col_x) &  is.na(col_y), na.rm = TRUE),
+    n_mismatch = sum(!is.na(col_x) & !is.na(col_y) & col_x != col_y, na.rm = TRUE)
   )
 })
 
-# Sort by most missing
-missing_counts <- arrange(missing_counts, desc(missing_in_new))
+cat("=== Values present in old QC but missing in new ===\n")
+missing_check <- filter(check_summary, n_missing > 0) %>% arrange(desc(n_missing))
+if (nrow(missing_check) == 0) cat("None.\n") else print(missing_check %>% select(variable, n_missing))
 
-print(missing_counts)
+cat("\n=== Interpretation field anomalies (spurious fills or wrong values) ===\n")
+interp_check <- filter(check_summary, grepl("Interpretation", variable), n_spurious + n_mismatch > 0) %>%
+  arrange(desc(n_spurious + n_mismatch))
+if (nrow(interp_check) == 0) cat("None.\n") else print(interp_check %>% select(variable, n_spurious, n_mismatch))
 
-# 2. Optionally, get the actual rows where values were lost for the worst offenders
-top_missing_vars <- filter(missing_counts, missing_in_new > 0) %>% pull(variable)
+# =============================================================
+# Step 2: Restore — apply all fixes and write to "fixed" sheet
+# =============================================================
 
-lost_values <- map_dfr(top_missing_vars, function(v) {
-  vx <- paste0(v, ".x")
-  vy <- paste0(v, ".y")
-
-  big %>%
-    filter(is.na(.data[[vx]]) & !is.na(.data[[vy]])) %>%
-    select(TSid, dataSetName.x, all_of(c(vx, vy))) %>%
-    mutate(variable = v) %>%
-    rename(new_value = all_of(vx), old_value = all_of(vy))
-})
-
-
-# 3. Replace missing values in newQC with old values from oldQC and summarize updates
 newQC_fixed <- newQC
+
+# Restore values lost to NA (all columns)
 updates_log <- map_dfr(shared_vars, function(v) {
   vx <- paste0(v, ".x")
   vy <- paste0(v, ".y")
-
   if (!all(c(vx, vy) %in% names(big))) return(NULL)
-
-  col_x <- big[[vx]]
-  col_y <- big[[vy]]
-
-  # Unlist list-columns if needed
-  if (is.list(col_x)) col_x <- map_chr(col_x, ~ if (is.null(.x) || length(.x) == 0) NA_character_ else as.character(.x[[1]]))
-  if (is.list(col_y)) col_y <- map_chr(col_y, ~ if (is.null(.x) || length(.x) == 0) NA_character_ else as.character(.x[[1]]))
-
-  # Coerce to character for safe comparison
-  col_x <- as.character(col_x)
-  col_y <- as.character(col_y)
-
-  # Find rows where new is NA but old has a value
+  col_x <- coerce_col(big[[vx]])
+  col_y <- coerce_col(big[[vy]])
   fill_idx <- which(is.na(col_x) & !is.na(col_y))
-
   if (length(fill_idx) == 0) return(NULL)
-
-  # Log each replacement
-  log <- tibble(
-    TSid = big$TSid[fill_idx],
-    dataSetName = big$dataSetName.x[fill_idx],
-    variable = v,
-    restored_value = col_y[fill_idx]
-  )
-
-  # Apply the replacement back into newQC
-  # Match rows by TSid
-  match_idx <- match(big$TSid[fill_idx], newQC$TSid)
-  newQC_fixed[[v]][match_idx] <<- big[[vy]][fill_idx]
-
-  log
+  match_idx <- match(big$TSid[fill_idx], newQC_fixed$TSid)
+  valid <- !is.na(match_idx)
+  if (is.list(newQC_fixed[[v]]) || (is.logical(newQC_fixed[[v]]) && all(is.na(newQC_fixed[[v]])))) {
+    newQC_fixed[[v]] <<- rep(NA_character_, nrow(newQC_fixed))
+  }
+  newQC_fixed[[v]][match_idx[valid]] <<- col_y[fill_idx[valid]]
+  tibble(TSid = big$TSid[fill_idx[valid]], variable = v, restored_value = col_y[fill_idx[valid]])
 })
 
-# Summarize updates
-cat("=== Restoration Summary ===\n")
-cat("Total values restored:", nrow(updates_log), "\n")
-cat("Variables affected:", n_distinct(updates_log$variable), "\n")
-cat("Datasets affected:", n_distinct(updates_log$dataSetName), "\n\n")
-
-# Per-variable summary
-updates_summary <- updates_log %>%
-  count(variable, name = "n_restored") %>%
-  arrange(desc(n_restored))
-
-print(updates_summary)
+# Correct spurious/wrong interpretation values (interpretation columns only)
+interp_vars <- grep("Interpretation", shared_vars, value = TRUE)
+interp_log <- map_dfr(interp_vars, function(v) {
+  vx <- paste0(v, ".x")
+  vy <- paste0(v, ".y")
+  if (!all(c(vx, vy) %in% names(big))) return(NULL)
+  col_x <- coerce_col(big[[vx]])
+  col_y <- coerce_col(big[[vy]])
+  fix_idx <- which(
+    (!is.na(col_x) &  is.na(col_y)) |
+    (!is.na(col_x) & !is.na(col_y) & col_x != col_y)
+  )
+  if (length(fix_idx) == 0) return(NULL)
+  match_idx <- match(big$TSid[fix_idx], newQC_fixed$TSid)
+  valid <- !is.na(match_idx)
+  if (is.list(newQC_fixed[[v]]) || (is.logical(newQC_fixed[[v]]) && all(is.na(newQC_fixed[[v]])))) {
+    newQC_fixed[[v]] <<- rep(NA_character_, nrow(newQC_fixed))
+  }
+  newQC_fixed[[v]][match_idx[valid]] <<- col_y[fix_idx[valid]]
+  tibble(TSid = big$TSid[fix_idx[valid]], variable = v,
+         wrong_value = col_x[fix_idx[valid]], correct_value = col_y[fix_idx[valid]])
+})
 
 newQC_fixed$inThisCompilation <- newQC$inThisCompilation
 
-write_csv(newQC_fixed,"fixed.csv")
-write_sheet_retry(newQC_fixed,ss = "1iIUtAFVqBV3JxleQe7TVjU0UxePdHxGRUygazCQUc4o")
+cat("\n=== Restoration summary ===\n")
+cat("Missing values restored:", nrow(updates_log), "across", n_distinct(updates_log$variable), "variables\n")
+cat("Interpretation fixes applied:", nrow(interp_log), "across", n_distinct(interp_log$variable), "variables\n")
 
-v2c <- "pub1_doi"
-sum(newQC_fixed[[v2c]] != newQC[[v2c]],na.rm = TRUE) + sum(is.na(newQC_fixed[[v2c]]) != is.na(newQC[[v2c]]),na.rm = TRUE)
-
-
+ss_fixed <- "1Bp8xw2NgMzvFBWtmVjC2y1Zf7RHXLRMQSQEzX3z5YI8"
+sheet_fixed <- "fixed"
+write_sheet_retry(newQC_fixed[0, ], ss = ss_fixed, sheet = sheet_fixed)
+for (start in seq(1, nrow(newQC_fixed), by = 500)) {
+  sheet_append_retry(newQC_fixed[start:min(start + 499, nrow(newQC_fixed)), ],
+                     ss = ss_fixed, sheet = sheet_fixed)
+}
+cat("Written to 'fixed' tab.\n")

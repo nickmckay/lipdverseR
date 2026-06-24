@@ -187,6 +187,7 @@ assignVariablesFromList <- function(params,env = parent.env(environment())){
 #' @param webDirectory directory for webserver
 #' @param qcId google sheets ID for the qc sheet
 #' @param lastUpdateId google sheets ID for the last version
+#' @param backupQCId google sheets ID for the pre-run QC backup used by checkQcUpdate(). Optional; if NULL the QC check is skipped.
 #' @param updateWebpages update lipdverse webpages (default = TRUE). Usually TRUE unless troubleshooting.
 #' @param versionMetaId
 #' @param standardizeTerms
@@ -213,6 +214,7 @@ buildParams <- function(project,
                         webDirectory,
                         qcId,
                         lastUpdateId,
+                        backupQCId = NULL,
                         versionMetaId = "1OHD7PXEQ_5Lq6GxtzYvPA76bpQvN1_eYoFR0X80FIrY",
                         googEmail = NULL,
                         updateWebpages = TRUE,
@@ -824,6 +826,15 @@ createQcFromFile <- function(params,data){
   lu <- getGoogleQCSheet(lastUpdateId)
   readr::write_csv(lu,file.path(webDirectory,project,"lastUpdate.csv"))
 
+  if (!is.null(backupQCId)) {
+    write_sheet_retry(lu[0, ], ss = backupQCId, sheet = 1)
+    n_backup_rows <- nrow(lu)
+    for (start in seq(1, n_backup_rows, by = 500)) {
+      sheet_append_retry(lu[start:min(start + 499, n_backup_rows), ],
+                         ss = backupQCId, sheet = 1)
+    }
+  }
+
   data$qcC <- qcC
   return(data)
 }
@@ -925,10 +936,40 @@ mergeQcSheets <- function(params,data){
   cfi <- which(qcC$TSid %in% bf$TSid)
   qcC$inThisCompilation[cfi] <- "TRUE"
 
+  # Backfill qcC from qcB for any NAs before the daff merge.
+  # Without this, daff treats NA-in-qcC as "b deleted the value" and wipes
+  # out curated QC sheet values (e.g. environmentInterpretation*) that the
+  # TS objects don't carry independently.
+  shared_cols <- setdiff(intersect(names(qcC), names(qcB)), "TSid")
+  for (col in shared_cols) {
+    na_in_c  <- is.na(qcC[[col]]) | qcC[[col]] == ""
+    has_in_b <- !is.na(qcB[[col]]) & qcB[[col]] != ""
+    fill     <- na_in_c & has_in_b
+    if (any(fill, na.rm = TRUE)) {
+      match_idx <- match(qcC$TSid[fill], qcB$TSid)
+      valid     <- !is.na(match_idx)
+      qcC[[col]][which(fill)[valid]] <- qcB[[col]][match_idx[valid]]
+    }
+  }
+
   qc <- daff::merge_data(parent = qcA,a = qcB,b = qcC)
 
   #remove fake conflicts
   qc <- purrr::map_dfc(qc,removeFakeConflictsCol)
+
+  # Post-merge restoration for sticky fields — set programmatically by the
+  # pipeline and never intentionally cleared by users. If the merge wiped a
+  # value (because qcB lost it in a prior broken run), recover from qcA.
+  sticky_fields <- c("paleoData_createdBy")
+  for (col in intersect(sticky_fields, names(qc))) {
+    if (!col %in% names(qcA)) next
+    na_in_result <- is.na(qc[[col]]) | qc[[col]] == ""
+    if (!any(na_in_result, na.rm = TRUE)) next
+    match_idx <- match(qc$TSid[na_in_result], qcA$TSid)
+    valid     <- !is.na(match_idx)
+    has_in_a  <- valid & (!is.na(qcA[[col]][match_idx[valid]]) & qcA[[col]][match_idx[valid]] != "")
+    qc[[col]][which(na_in_result)[valid][has_in_a]] <- qcA[[col]][match_idx[valid][has_in_a]]
+  }
 
   #remove duplicate rows
   qc <- dplyr::distinct(qc)
@@ -1560,6 +1601,175 @@ createWebpages <- function(params,data){
 }
 
 
+#' Check for values lost in a QC update and log them to the QC sheet
+#'
+#' Compares the newly written QC sheet against the backup Google Sheet snapshot
+#' written by createQcFromFile() at the start of the pipeline, identifies values
+#' present before but now missing, and writes a summary to an "update_log" tab
+#' in the QC Google Sheet. Does NOT modify the QC data. Call restoreQcValues()
+#' manually if you want to apply the restorations.
+#'
+#' @param newQCId Google Sheet ID for the freshly written QC (typically qcId)
+#' @param backupQCId Google Sheet ID for the pre-run QC snapshot (set via buildParams)
+#' @param googEmail Google account for Sheets auth
+#' @return invisibly: the updates_log tibble (TSid, variable, old_value columns)
+#' @export
+checkQcUpdate <- function(newQCId, backupQCId, googEmail = NULL) {
+  if (is.null(backupQCId)) {
+    message("checkQcUpdate: no backupQCId provided, skipping check.")
+    return(invisible(NULL))
+  }
+  if (!is.null(googEmail)) {
+    googlesheets4::gs4_auth(email = googEmail, cache = ".secret")
+  }
+
+  newQC <- read_sheet_retry(ss = newQCId, sheet = "QC")
+  oldQC <- getGoogleQCSheet(backupQCId)
+
+  shared_vars <- setdiff(intersect(names(newQC), names(oldQC)), "TSid")
+
+  # inner_join: only compare TSids present in both sheets — avoids false positives
+  # from TSids in the old QC that are no longer in the current compilation.
+  big <- dplyr::inner_join(
+    dplyr::select(newQC, TSid, dplyr::all_of(shared_vars)),
+    dplyr::select(oldQC, TSid, dplyr::all_of(shared_vars)),
+    by = "TSid"
+  )
+
+  updates_log <- purrr::map_dfr(shared_vars, function(v) {
+    vx <- paste0(v, ".x")
+    vy <- paste0(v, ".y")
+    if (!all(c(vx, vy) %in% names(big))) return(NULL)
+
+    col_x <- big[[vx]]
+    col_y <- big[[vy]]
+
+    if (is.list(col_x)) col_x <- purrr::map_chr(col_x, ~ if (is.null(.x) || length(.x) == 0) NA_character_ else as.character(.x[[1]]))
+    if (is.list(col_y)) col_y <- purrr::map_chr(col_y, ~ if (is.null(.x) || length(.x) == 0) NA_character_ else as.character(.x[[1]]))
+    col_x <- as.character(col_x)
+    col_y <- as.character(col_y)
+
+    fill_idx <- which(is.na(col_x) & !is.na(col_y))
+    if (length(fill_idx) == 0) return(NULL)
+
+    tibble::tibble(
+      TSid      = big$TSid[fill_idx],
+      variable  = v,
+      old_value = col_y[fill_idx]
+    )
+  })
+
+  n_lost <- nrow(updates_log)
+
+  if (n_lost > 0) {
+    message(glue::glue(
+      "checkQcUpdate: {n_lost} value(s) lost across ",
+      "{dplyr::n_distinct(updates_log$variable)} variable(s) in ",
+      "{dplyr::n_distinct(updates_log$TSid)} time series. ",
+      "See 'update_log' tab in QC sheet. Run restoreQcValues() to restore."
+    ))
+  } else {
+    message("checkQcUpdate: no lost values detected.")
+  }
+
+  log_to_write <- tibble::tibble(
+    checked_at = as.character(Sys.time()),
+    n_lost     = n_lost
+  )
+  if (n_lost > 0) {
+    log_to_write <- dplyr::bind_cols(log_to_write, updates_log)
+  }
+
+  # Write to update_log tab, replacing any previous log
+  existing_sheets <- try(googlesheets4::sheet_names(newQCId), silent = TRUE)
+  if (!inherits(existing_sheets, "try-error") && "update_log" %in% existing_sheets) {
+    googlesheets4::sheet_delete(ss = newQCId, sheet = "update_log")
+  }
+  googlesheets4::sheet_write(log_to_write, ss = newQCId, sheet = "update_log")
+
+  invisible(updates_log)
+}
+
+
+#' Restore values flagged as lost by checkQcUpdate()
+#'
+#' Reads the "update_log" tab from the QC sheet and applies the old_value
+#' entries back into the main QC sheet (sheet 1), then writes the corrected
+#' data back to Google Sheets. Run this manually after reviewing the log.
+#'
+#' @param qcId Google Sheet ID containing both the QC data (sheet 1) and the
+#'   "update_log" tab written by checkQcUpdate()
+#' @param googEmail Google account for Sheets auth
+#' @return invisibly: list(n_restored, newQC_fixed)
+#' @export
+restoreQcValues <- function(qcId, googEmail = NULL) {
+  if (!is.null(googEmail)) {
+    googlesheets4::gs4_auth(email = googEmail, cache = ".secret")
+  }
+
+  updates_log <- read_sheet_retry(ss = qcId, sheet = "update_log")
+  restore_rows <- dplyr::filter(updates_log, !is.na(TSid) & !is.na(variable) & !is.na(old_value))
+
+  if (nrow(restore_rows) == 0) {
+    message("restoreQcValues: nothing to restore.")
+    return(invisible(list(n_restored = 0, newQC_fixed = NULL)))
+  }
+
+  newQC <- read_sheet_retry(ss = qcId, sheet = "QC")
+  newQC_fixed <- newQC
+
+  # Pre-coerce blank columns so character values can be assigned into them.
+  # A fully-empty column is inferred as logical even with guess_max = Inf;
+  # as.logical("spring") returns NA, silently dropping the restoration.
+  vars_to_restore <- unique(restore_rows$variable)
+  for (v in vars_to_restore) {
+    if (!v %in% names(newQC_fixed)) next
+    col <- newQC_fixed[[v]]
+    if (is.list(col) || (is.logical(col) && all(is.na(col)))) {
+      newQC_fixed[[v]] <- rep(NA_character_, nrow(newQC_fixed))
+    }
+  }
+
+  for (i in seq_len(nrow(restore_rows))) {
+    tsid <- restore_rows$TSid[i]
+    v    <- restore_rows$variable[i]
+    val  <- restore_rows$old_value[i]
+
+    if (!v %in% names(newQC_fixed)) next
+    idx <- which(newQC_fixed$TSid == tsid)
+    if (length(idx) == 0) next
+
+    # Coerce the stored character value to match the column type
+    col_type <- class(newQC_fixed[[v]])
+    val_coerced <- tryCatch(
+      switch(col_type[1],
+        numeric   = as.numeric(val),
+        double    = as.numeric(val),
+        integer   = as.integer(val),
+        logical   = as.logical(val),
+        as.character(val)
+      ),
+      warning = function(w) as.character(val),
+      error   = function(e) as.character(val)
+    )
+    newQC_fixed[[v]][idx] <- val_coerced
+  }
+
+  write_sheet_retry(newQC_fixed[0, ], ss = qcId, sheet = "QC")
+  chunk_size <- 500
+  n_rows <- nrow(newQC_fixed)
+  for (start in seq(1, n_rows, by = chunk_size)) {
+    sheet_append_retry(newQC_fixed[start:min(start + chunk_size - 1, n_rows), ],
+                       ss = qcId, sheet = "QC")
+  }
+
+  n_restored <- nrow(restore_rows)
+  message(glue::glue("restoreQcValues: restored {n_restored} value(s)."))
+
+  invisible(list(n_restored = n_restored, newQC_fixed = newQC_fixed))
+}
+
+
 #' Update google
 #'
 #' @param params
@@ -1846,6 +2056,13 @@ changeloggingAndUpdating <- function(params,data){
 
   unlink(x = filesToUltimatelyDelete,force = TRUE, recursive = TRUE)
   writeLipd(DF,path = lipdDir,removeNamesFromLists = TRUE,delete.saved.ensembles = TRUE)
+
+  try(checkQcUpdate(
+    newQCId    = qcId,
+    backupQCId = params$backupQCId,
+    googEmail  = googEmail
+  ))
+
   unFlagUpdate()
 
 }

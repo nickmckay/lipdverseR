@@ -1,6 +1,6 @@
 devtools::load_all(".")
 
-dlp <- "~/Downloads/notAdded"
+dlp <- "~/Downloads/stanVoc"
 h2k_qc_sheet <- "1Bp8xw2NgMzvFBWtmVjC2y1Zf7RHXLRMQSQEzX3z5YI8"
 
 # Step 1: standardize, stage to holding tank, and write issues to a Google Sheet.

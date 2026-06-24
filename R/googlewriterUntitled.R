@@ -44,6 +44,43 @@ write_sheet_retry <- function(data,ss = NULL,sheet = NULL,ntries = 50,timeout = 
 
 
 
+#' Append rows to a google sheet with retries
+#'
+#' @param data data.frame of rows to append
+#' @param ss spreadsheet id
+#' @param sheet sheet name or index
+#' @param ntries number of tries
+#' @param timeout seconds before timeout
+#'
+#' @return
+#' @export
+sheet_append_retry <- function(data, ss = NULL, sheet = NULL, ntries = 50, timeout = 60) {
+  tries <- 0
+  while (TRUE) {
+    wrote <- try(R.utils::withTimeout(
+      googlesheets4::sheet_append(ss = ss, data = data, sheet = sheet),
+      timeout = timeout, onTimeout = "error"
+    ), silent = FALSE)
+
+    if (is(wrote, "try-error")) {
+      tries <- tries + 1
+      message(glue::glue("sheet_append_retry: attempt {tries}/{ntries} failed."))
+      Sys.sleep(min(tries * 2, 30))
+    } else {
+      break
+    }
+
+    if (tries > ntries) break
+  }
+
+  if (is(wrote, "try-error")) {
+    stop(glue::glue("sheet_append_retry: failed after {ntries} attempts."))
+  } else {
+    return(invisible(wrote))
+  }
+}
+
+
 #' write google sheet with many attempts
 #'
 #' @param data data.frame
@@ -54,11 +91,11 @@ write_sheet_retry <- function(data,ss = NULL,sheet = NULL,ntries = 50,timeout = 
 #'
 #' @return
 #' @export
-read_sheet_retry <- function(ss = NULL,sheet = NULL,ntries = 20,timeout = 1200,...){
+read_sheet_retry <- function(ss = NULL, sheet = NULL, ntries = 20, timeout = 1200, guess_max = Inf, ...) {
 
   tries <- 0
   while(TRUE){
-    read <- try(R.utils::withTimeout({googlesheets4::read_sheet(ss = ss, sheet = sheet,...)},
+    read <- try(R.utils::withTimeout({googlesheets4::read_sheet(ss = ss, sheet = sheet, guess_max = guess_max, ...)},
                                       timeout = timeout,
                                       onTimeout = "error"),silent = TRUE)
 
